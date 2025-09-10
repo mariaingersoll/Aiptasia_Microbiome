@@ -1,0 +1,3333 @@
+---
+title: "Gnoto_tagseq"
+author: "Maria Valadez Ingersoll"
+date: "2025-05-14"
+output: html_document
+---
+
+```{r}
+setwd("/projectnb/davies-hb/Maria/Gnoto_Aiptasia/Aiptasia_Microbiome/tagseq/")
+```
+
+```{r}
+library("DESeq2")                   
+library("arrayQualityMetrics")      
+library("dplyr")                  
+library("RColorBrewer")             
+library("gplots")                   
+library("tidyverse")               
+library("pheatmap")                
+library("vegan")                    
+library("ggplot2")                 
+library("ggrepel") 
+#library("WGCNA")
+library("flashClust")
+library("VennDiagram")
+#library("KOGMWU")
+library("ggtext")
+library("ggpubr")
+library("reshape2")
+library("tidyselect")
+library("devtools")
+#library("cmprsk")
+library("car")
+library("Hmisc")
+library("plotly")
+#install.packages("WGCNA")
+library(WGCNA)
+```
+
+
+Open and inspect data (preprocessed using "tagseq_HOWTO" on BU SCC)
+- this is the host data first (has been filtered to remove symbionts)
+```{r}
+countData <- read.table("./data_files/Aiptasia_2025_counts.txt")
+length(countData[,1])
+#27482
+head(countData)
+newColNames = c("P0A1", "P0A3", "P0A4", "P0A6", "P0A7", "P0S1", "P0S2","P0S3","P0S6", "P0S7", "CA1", "CA2", "CA3", "CA4", "CS1", "CS2", "CS3", "CS5", "CS6", "P2A2", "P2A4", "P2A5", "P2A6", "P2A7", "P2S1", "P2S2", "P2S3", "P2S4", "P2S5", "P2S6", "RA1", "RA2", "RA3", "RA4", "RA5", "RS1", "RS2", "RS4", "RS6", "RS7")
+colnames(countData)=paste(newColNames)
+length(countData[,1])
+#27482
+head(countData)
+
+totalCounts=colSums(countData)
+barplot(totalCounts, ylab="Raw Counts")
+#save as rawcounts_051325 as 6.5x4 landscape
+
+min(totalCounts)
+#475735
+max(totalCounts)
+#1077846
+#so lower than the starvation dataset but still okay
+```
+
+Now look at symbiont counts
+
+
+- I will be continuing the full analysis below on the host only data
+Make treatment groups for a metadata file
+```{r}
+anemones=c("P0A1", "P0A3", "P0A4", "P0A6", "P0A7", "P0S1", "P0S2","P0S3","P0S6", "P0S7", "CA1", "CA2", "CA3", "CA4", "CS1", "CS2", "CS3", "CS5", "CS6", "P2A2", "P2A4", "P2A5", "P2A6", "P2A7", "P2S1", "P2S2", "P2S3", "P2S4", "P2S5", "P2S6", "RA1", "RA2", "RA3", "RA4", "RA5", "RS1", "RS2", "RS4", "RS6", "RS7")
+a=data.frame(anemones)
+anemondata <-a
+anemondata
+
+treat=c("P0A", "P0A", "P0A", "P0A", "P0A", "P0S", "P0S","P0S","P0S", "P0S", "CA", "CA", "CA", "CA", "CS", "CS", "CS", "CS", "CS", "P2A", "P2A", "P2A", "P2A", "P2A", "P2S", "P2S", "P2S", "P2S", "P2S", "P2S", "RA", "RA", "RA", "RA", "RA", "RS", "RS", "RS", "RS", "RS")
+t=data.frame(treat)
+colData<- t
+colData
+
+symstat = c("apo", "apo", "apo", "apo", "apo", "sym", "sym","sym","sym", "sym", "apo", "apo", "apo", "apo", "sym", "sym", "sym", "sym", "sym", "apo", "apo", "apo", "apo", "apo", "sym", "sym", "sym", "sym", "sym", "sym", "apo", "apo", "apo", "apo", "apo", "sym", "sym", "sym", "sym", "sym")
+h=data.frame(symstat)
+symData<- h
+symData
+
+gnoto=c("plus0ab", "plus0ab", "plus0ab", "plus0ab", "plus0ab", "plus0ab", "plus0ab","plus0ab","plus0ab", "plus0ab", "control", "control", "control", "control", "control", "control", "control", "control", "control", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery")
+g=data.frame(gnoto)
+gnotoData<- g
+gnotoData
+
+allData = cbind(anemondata, colData, symData, gnotoData)
+allData
+```
+
+Run preliminary DESeq and outlier analysis
+```{r}
+dds_full<-DESeqDataSetFromMatrix(countData=countData, colData=colData, design=~treat)
+dds_full<-DESeq(dds_full)
+
+vsd.ge=assay(vst(dds_full))
+rl=vst(dds_full)
+e=ExpressionSet(assay(rl), AnnotatedDataFrame(as.data.frame(colData(rl))))
+v = setwd("/projectnb/davies-hb/Maria/Gnoto_Aiptasia/Aiptasia_Microbiome/tagseq/")
+arrayQualityMetrics(e,outdir=v,intgroup=c("treat"),force=T)
+#moved index.html to data_files
+#P0A7 is an outlier in 1 category so going to remove it
+
+#rerun dds with outlier removed
+countData_new <- countData[,c(1:4,6:40)]
+treat_new=c("P0A", "P0A", "P0A", "P0A", "P0S", "P0S","P0S","P0S", "P0S", "CA", "CA", "CA", "CA", "CS", "CS", "CS", "CS", "CS", "P2A", "P2A", "P2A", "P2A", "P2A", "P2S", "P2S", "P2S", "P2S", "P2S", "P2S", "RA", "RA", "RA", "RA", "RA", "RS", "RS", "RS", "RS", "RS")
+t_new=data.frame(treat_new)
+colData_new<- t_new
+colnames(colData_new) <- paste("treat") 
+
+allData_new <- allData[c(1:4,6:40),]
+
+dds<-DESeqDataSetFromMatrix(countData=countData_new, colData=colData_new, design=~treat)
+dds<-DESeq(dds)
+```
+
+Visualize the results for all the pairwise comparisons
+`results` extracts the results table from the DESeq analysis and the DESeqDataSet is used to generate the dispersion plot.
+
+Control apo to control sym first
+- make apo your baseline
+```{r}
+head(dds)
+res_CS_CA <- results(dds, contrast = c("treat", "CS", "CA")) #this means that pos log2FC values indicate DEG is upregulated in CS compared to CA
+res_CS_CA
+#How many gene counts of res_CS_CA have FDR < 10%?
+head(res_CS_CA)
+table(res_CS_CA$padj<0.1)
+# FALSE=13196 TRUE=3092
+summary(res_CS_CA, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 1197, 4.4%
+#LFC < 0 (down)     : 1177, 4.3%
+```
+
+now control apo to recovery
+```{r}
+res_RA_CA <- results(dds, contrast = c("treat", "RA", "CA"))
+res_RA_CA
+head(res_RA_CA)
+table(res_RA_CA$padj<0.1)
+# FALSE=10963 TRUE=531
+summary(res_RA_CA, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 193, 0.7%
+#LFC < 0 (down)     : 149, 0.54%
+```
+
+control apo to plus2ab
+```{r}
+res_P2A_CA <- results(dds, contrast = c("treat", "P2A", "CA")) 
+res_P2A_CA
+head(res_P2A_CA)
+table(res_P2A_CA$padj<0.1)
+# FALSE=12771 TRUE=1387
+summary(res_P2A_CA, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 448, 1.6%
+#LFC < 0 (down)     : 510, 1.9%
+```
+
+control apo to plus0ab
+```{r}
+res_P0A_CA <- results(dds, contrast = c("treat", "P0A", "CA")) 
+res_P0A_CA
+head(res_P0A_CA)
+table(res_P0A_CA$padj<0.1)
+# FALSE=11413 TRUE=1147
+summary(res_P0A_CA, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 310, 1.1%
+#LFC < 0 (down)     : 504, 1.8%
+```
+
+recovery apo to plus2ab
+```{r}
+res_P2A_RA <- results(dds, contrast = c("treat", "P2A", "RA")) 
+res_P2A_RA
+head(res_P2A_RA)
+table(res_P2A_RA$padj<0.1)
+# FALSE=12750 TRUE=875
+summary(res_P2A_RA, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 279, 1%
+#LFC < 0 (down)     : 353, 1.3%
+```
+
+recovery apo to plus0ab
+```{r}
+res_P0A_RA <- results(dds, contrast = c("treat", "P0A", "RA")) 
+res_P0A_RA
+head(res_P0A_RA)
+table(res_P0A_RA$padj<0.1)
+# FALSE=12457 TRUE=1168
+summary(res_P0A_RA, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 327, 1.2%
+#LFC < 0 (down)     : 597, 2.2%
+```
+
+apo plus2ab to plus0ab
+```{r}
+res_P0A_P2A <- results(dds, contrast = c("treat", "P0A", "P2A"))
+res_P0A_P2A
+head(res_P0A_P2A)
+table(res_P0A_P2A$padj<0.1)
+# FALSE=10412 TRUE=1082
+summary(res_P0A_P2A, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 321, 1.2%
+#LFC < 0 (down)     : 484, 1.8%
+```
+
+NOW SYM!
+control SYM to recovery
+```{r}
+res_RS_CS <- results(dds, contrast = c("treat", "RS", "CS"))
+res_RS_CS
+head(res_RS_CS)
+table(res_RS_CS$padj<0.1)
+# FALSE=14527 TRUE=1761
+summary(res_RS_CS, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 804, 2.9%
+#LFC < 0 (down)     : 543, 2%
+```
+
+control SYM to plus2ab
+```{r}
+res_P2S_CS <- results(dds, contrast = c("treat", "P2S", "CS")) 
+res_P2S_CS
+head(res_P2S_CS)
+table(res_P2S_CS$padj<0.1)
+# FALSE=13424 TRUE=1266
+summary(res_P2S_CS, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 412, 1.5%
+#LFC < 0 (down)     : 571, 2.1%
+```
+
+control SYM to plus0ab
+```{r}
+res_P0S_CS <- results(dds, contrast = c("treat", "P0S", "CS")) 
+res_P0S_CS
+head(res_P0S_CS)
+table(res_P0S_CS$padj<0.1)
+# FALSE=14385 TRUE=1371
+summary(res_P0S_CS, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 402, 1.5%
+#LFC < 0 (down)     : 598, 2.2%
+```
+
+recovery SYM to plus2ab
+```{r}
+res_P2S_RS <- results(dds, contrast = c("treat", "P2S", "RS")) 
+res_P2S_RS
+head(res_P2S_RS)
+table(res_P2S_RS$padj<0.1)
+# FALSE=13284 TRUE=1406
+summary(res_P2S_RS, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 334, 1.2%
+#LFC < 0 (down)     : 680, 2.5%
+```
+
+recovery SYM to plus0ab
+```{r}
+res_P0S_RS <- results(dds, contrast = c("treat", "P0S", "RS")) 
+res_P0S_RS
+head(res_P0S_RS)
+table(res_P0S_RS$padj<0.1)
+# FALSE=13081 TRUE=2142
+summary(res_P0S_RS, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 671, 2.4%
+#LFC < 0 (down)     : 955, 3.5%
+```
+
+SYM plus2ab to plus0ab
+```{r}
+res_P0S_P2S <- results(dds, contrast = c("treat", "P0S", "P2S"))
+res_P0S_P2S
+head(res_P0S_P2S)
+table(res_P0S_P2S$padj<0.1)
+# FALSE=11802 TRUE=1290
+summary(res_P0S_P2S, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 447, 1.6%
+#LFC < 0 (down)     : 499, 1.8%
+```
+
+Now compare between apo and sym treatments (keeping apo as baseline)
+recovery
+```{r}
+res_RS_RA <- results(dds, contrast = c("treat", "RS", "RA"))
+res_RS_RA
+head(res_RS_RA)
+table(res_RS_RA$padj<0.1)
+# FALSE=14363 TRUE=2458
+summary(res_RS_RA, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 938, 3.4%
+#LFC < 0 (down)     : 896, 3.3%
+```
+
+plus2ab
+```{r}
+res_P2S_P2A <- results(dds, contrast = c("treat", "P2S", "P2A"))
+res_P2S_P2A
+head(res_P2S_P2A)
+table(res_P2S_P2A$padj<0.1)
+# FALSE=13258 TRUE=2498
+summary(res_P2S_P2A, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 920, 3.3%
+#LFC < 0 (down)     : 1048, 3.8%
+```
+
+plus0ab
+```{r}
+res_P0S_P0A <- results(dds, contrast = c("treat", "P0S", "P0A"))
+res_P0S_P0A
+head(res_P0S_P0A)
+table(res_P0S_P0A$padj<0.1)
+# FALSE=14616 TRUE=3270
+summary(res_P0S_P0A, alpha=0.05)
+# out of 27482 with nonzero total read count
+#adjusted p-value < 0.05
+#LFC > 0 (up)       : 1244, 4.5%
+#LFC < 0 (down)     : 1276, 4.6%
+```
+
+Dispersion plot
+```{r}
+plotDispEsts(dds, main="Dispersion ABS")
+```
+
+- Now we are going to retrieve the rlog data, which will give us better transformation when size factors vary across samples
+- regularized log transformation, transforms COUNT DATA to log2 scale to minimize differences between samples for rows with small counts
+```{r}
+rlog=rlogTransformation(dds, blind=TRUE) 
+rld=assay(rlog)
+head(rld)
+hist(rld)
+```
+- The assay function allows you to access the matrix-like data, so that you can view it bc head(rld) gives you just a summary
+- The histogram above displays the frequency of each binned rld count value
+
+Raw Sample Comparison
+
+- Making a sample distance heatmap
+- as.matrix attempts to turn its argument into a matrix
+- dist computes and returns the distance matrix computed using the specified distance measure to compute distances between the rows of a data matrix rld
+- Create a sample heatmap of the relatedness based on the count distance/difference between samples
+```{r}
+sampleDists <- as.matrix(dist(t(rld)))
+
+heatmap.2(as.matrix(sampleDists), key=F, trace="none",
+          col=colorpanel(100, "black", "white"),
+          margin=c(10, 10))
+
+#saved as sampledisthm as landscape with 5x5 dimensions
+```
+
+
+jump to PCA
+```{r}
+head(rld)
+length(rld[,1])
+#27482
+```
+
+```{r}
+rld_t=t(rld)
+#colnames(rld_t)
+pca <- prcomp(rld_t,center = TRUE)
+li <- pca$sdev^2 / sum(pca$sdev^2)
+pc1v <- round(li[1] * 100, 1)
+pc2v <- round(li[2] * 100, 1)
+pca_s <- as.data.frame(pca$x)
+pca_s <- pca_s[,c(1,2)]
+
+pca_s$Samples = row.names(pca_s)
+#pca_s$anemones = c("A1F", "A1S", "A2F", "A2S", "A3F", "A3S", "A4F", "A4S", "A5F", "A5S", "S1F", "S1S", "S2F", "S2S", "S3F", "S3S", "S4F", "S4S", "S5F", "S5S")
+pca_s$treat=allData_new$treat
+pca_s$Sym_Status=allData_new$symstat
+pca_s$Gnoto=allData_new$gnoto
+
+head(pca_s)
+```
+
+```{r}
+sym_col <- c("gray40", "#CC6600")
+gnoto_shape = c(15, 16, 17, 18)
+
+pca_plot <- ggplot(pca_s, aes(x=PC1, y=PC2, color = Sym_Status, pch = Gnoto, group=treat)) +
+  geom_point(size=2) +
+  #  geom_text_repel(aes(label=Samples)) +
+  scale_colour_manual(values=sym_col)+
+  #scale_fill_manual(values=fill_color, guide=NULL)+
+ scale_shape_manual(values=gnoto_shape) +
+  stat_ellipse()+
+  labs(color="Symbiotic State", pch="Treatment")+
+  xlab(paste0("PC1: ",pc1v,"% variance")) +
+  ylab(paste0("PC2: ",pc2v,"% variance")) +
+  theme(panel.background = element_rect(color="black", fill="white"),
+        axis.text = element_text(colour="black", size=10), 
+        axis.title.x = ggtext::element_markdown(face="bold", size=12),
+        axis.title.y = ggtext::element_markdown(face="bold",size=12),
+        panel.grid.major = element_line(colour = "gray80", linewidth = 0.5, linetype="dotted"),
+        legend.position="right",
+        legend.background=element_rect(color="black"),
+        legend.text=element_text(face="bold", color="black", size=8),
+        legend.title= element_blank(),
+        legend.text.align = 0,
+        legend.key.size=unit(10,"point"))
+ggplotly(pca_plot)
+#gnoto_PCA_tagseq 6x4
+```
+
+stats on the PCA
+```{r}
+install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+library(pairwiseAdonis)
+
+# Effect of Gnoto
+adonis2(pca$x ~ Gnoto, data = pca_s, method='eu', na.rm = TRUE)
+# Pr(>F) = 0.001 ***
+
+# Effect of Sym status
+adonis2(pca$x ~ Sym_Status, data = pca_s, method='eu', na.rm = TRUE)
+# Pr(>F)=0.001 ***
+
+# Effect of treatment
+adonis2(pca$x ~ treat, data = pca_s, method='eu', na.rm = TRUE)
+# Pr(>F)=0.001 ***
+
+# Interaction between gnoto and sym
+adonis2(pca$x ~ Gnoto*Sym_Status, data = pca_s, method='eu', na.rm = TRUE)
+# Gnoto:Sym_Status Pr(>F>=0.001 ***)
+
+# Pairwise effect of treatment (to get individual pairwise comparisons)
+pairwise.adonis2(pca$x ~ treat, data = pca_s, method='eu', na.rm = TRUE)
+#P0A_vs_P2A 0.007 **
+#P0A_vs_CA 0.033 *
+#P0A_vs_RA 0.008 **
+#CA_vs_P2A 0.01 **
+#CA_vs_RA 0.009 **
+#P2A_vs_RA 0.009 **
+
+#P0S_vs_CS 0.007 **
+#P0S_vs_P2S 0.003 **
+#P0S_vs_RS 0.012 *
+#CS_vs_P2S 0.005 **
+#CS_vs_RS 0.01 **
+#P2S_vs_RS 0.004 **
+
+
+#CA_vs_CS 0.013 *
+#P0A_vs_P0S 0.01 **
+#P2A_vs_P2S 0.001 ***
+#RA_vs_RS 0.006 **
+```
+
+Plasticity using Colleen's code: https://github.com/seabove7/RandomFun/blob/main/Plasticity_function/PlasticityFun_example.R
+
+Source the function then run plast function on your data
+- do control vs apo abs treatments and sym starved vs sym control with the abs treatments as the control
+```{r}
+source("https://raw.githubusercontent.com/seabove7/RandomFun/main/Plasticity_function/PCAplast_function.R")
+
+rld_plast <- rld
+head(rld_plast)
+rld_plast_t <- t(rld_plast)
+pca_df_plast <- prcomp(rld_plast_t, center=TRUE)
+
+head(allData_new)
+allData_2 <- remove_rownames(allData_new)
+allData_2 <- column_to_rownames(allData_2, var="anemones")
+head(allData_2)
+
+write.csv(allData_2, file="allData_2.csv", quote=F, row.names=TRUE)
+allData_2 <- read.csv("allData_2.csv")
+head(allData_2)
+
+head(pca_df_plast)
+
+plast_out_all <- PCAplast(pca = pca_df_plast, # the PCA dataframe containing the PCA eigenvalues
+         data = allData_2, # the condition/treatment data corresponding to samples
+         sample_ID = "X", # the name of column that provide unique ID per sample (if blank, will pull rownames for this)
+        num_pca =  2, # the number of PCAs to include in analysis (default is 'all', but you can specify another number with a minimum of 2 PCAs)
+         control_lvl = "control", # control level of the treatment. If blank, a control mean per control level is assumed
+         group = "symstat", # the grouping column (i.e., colony). If blank, will assume control level grouping only! was "symstat" in first submission; changed to Clone here
+         control_col = "gnoto") # what the 'treatment' column is called
+
+plast_out_all
+```
+
+Now visualize the distance values
+```{r}
+plast_col = c("gray40", "#CC6600")
+#"gray40","gray40","gray40","gray40","#CC6600","#CC6600","#CC6600","#CC6600","#CC6600","gray40", "gray40", "gray40", "gray40", "gray40", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "gray40", "gray40", "gray40", "gray40", "gray40", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600"
+
+plast_reorder <- plast_out_all[c(1:4, 10:14, 21:25, 5:9, 15:20, 26:30),]
+#plast_reorder$treat  = factor(plast_reorder$treat, levels=plast_reorder$treat)
+
+plast_plot <- ggplot(data = plast_reorder, aes(x = treat, y = dist, pch=gnoto, group=treat)) + 
+  geom_point(color=c("gray40","gray40","gray40","gray40", "gray40", "gray40", "gray40", "gray40", "gray40", "gray40", "gray40", "gray40", "gray40", "gray40", "#CC6600","#CC6600","#CC6600","#CC6600","#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600", "#CC6600"), stroke=1, position = position_jitter(width = 0.2),aes(fill=symstat)) +
+ stat_summary(fun.data = "mean_sdl", fun.args = list(mult = 1), geom = "errorbar", width = 0, colour = c("black")) +
+  stat_summary(fun = "mean", size = 0.8, shape=21, colour = "black", fill="gray") +
+  scale_fill_manual(values=plast_col, guide=guide_legend(override.aes = list(color=list("gray40","#CC6600"))))+
+  scale_x_discrete(limits = c("P0A","P2A", "RA", "P0S", "P2S", "RS"))+
+  scale_shape_manual(values=c(16, 17, 18)) +
+  ylim(0,30)+
+  ylab("Plasticity")+
+  xlab("Treatment")+
+  #labs(fill="Symbiosis State")+
+  theme(panel.background = element_rect(color="black", fill="white"),
+        axis.text = element_text(colour="black", size=10), 
+        axis.title.x = ggtext::element_markdown(face="bold", size=12),
+        axis.title.y = ggtext::element_markdown(face="bold",size=12),
+        panel.grid.major = element_line(colour = "gray80", linewidth = 0.5, linetype="dotted"),
+        legend.position="right",
+        legend.background=element_rect(color="black"),
+        legend.text=element_text(face="bold", color="black", size=8),
+        legend.title= element_blank(),
+        legend.text.align = 0,
+        legend.key.size=unit(10,"point"))
+plast_plot
+#saved as plasticity_072225 as portrait with 4x4 in Figures
+
+summary(plast_out_all)
+plast_aov <- aov(dist~treat, data=plast_out_all)
+summary(plast_aov)
+
+#            Df Sum Sq Mean Sq F value   Pr(>F)    
+#treat        5  965.7  193.13   28.28 2.55e-09 ***
+#Residuals   24  163.9    6.83      
+
+TukeyHSD(plast_aov)
+#P2A-P0A 10.761072  5.34085139 16.181292 0.0000327
+#RA-P0A  11.781450  6.36122988 17.201670 0.0000081
+#RA-P2A   1.020378 -4.08985404  6.130611 0.9886501
+
+#P2S-P0S  5.230563  0.33788776 10.123238 0.0312891
+#RS-P0S  15.205826 10.09559383 20.316059 0.0000000
+#RS-P2S   9.975263  5.08258829 14.867939 0.0000219
+
+aov.plast_int <- aov(dist ~ gnoto*symstat, data=plast_out_all)
+summary(aov.plast_int)
+#gnoto          2  853.7   426.8  62.503 3.05e-10 ***
+#symstat        1    5.0     5.0   0.729   0.4018    
+#gnoto:symstat  2  107.0    53.5   7.836   0.0024 ** 
+
+TukeyHSD(aov.plast_int)
+
+```
+
+
+
+
+
+create GO input files for six pairwise comparisons
+turn results into files for the following comparisons: 
+res_P0A_CA
+res_P2A_CA
+res_RA_CA
+
+res_P0S_CS
+res_P2S_CS
+res_RS_CS
+```{r}
+#res_P0A_CA
+write.table(res_P0A_CA, file="./data_files/P0A_CA_DE_25.txt", quote=F, sep="\t")
+head(read.delim("./data_files/P0A_CA_DE_25.txt"))
+res_P0A_CA<- read.delim("./data_files/P0A_CA_DE_25.txt")
+res_apo_P0C = res_P0A_CA %>%
+  tibble::rownames_to_column(var = "gene_ID")
+head(res_apo_P0C)
+nrow(res_apo_P0C)
+#27482
+
+#res_P2A_CA
+write.table(res_P2A_CA, file="./data_files/P2A_CA_DE_25.txt", quote=F, sep="\t")
+res_P2A_CA<- read.delim("./data_files/P2A_CA_DE_25.txt")
+res_apo_P2C = res_P2A_CA %>%
+  tibble::rownames_to_column(var = "gene_ID")
+head(res_apo_P2C)
+
+#res_RA_CA
+write.table(res_RA_CA, file="./data_files/RA_CA_DE_25.txt", quote=F, sep="\t")
+res_RA_CA<- read.delim("./data_files/RA_CA_DE_25.txt")
+res_apo_RC = res_RA_CA %>%
+  tibble::rownames_to_column(var = "gene_ID")
+
+#res_P0S_CS
+write.table(res_P0S_CS, file="./data_files/P0S_CS_DE_25.txt", quote=F, sep="\t")
+res_P0S_CS<- read.delim("./data_files/P0S_CS_DE_25.txt")
+res_sym_P0C = res_P0S_CS %>%
+  tibble::rownames_to_column(var = "gene_ID")
+
+#res_P2S_CS
+write.table(res_P2S_CS, file="./data_files/P2S_CS_DE_25.txt", quote=F, sep="\t")
+res_P2S_CS<- read.delim("./data_files/P2S_CS_DE_25.txt")
+res_sym_P2C = res_P2S_CS %>%
+  tibble::rownames_to_column(var = "gene_ID")
+
+#res_RS_CS
+write.table(res_RS_CS, file="./data_files/RS_CS_DE_25.txt", quote=F, sep="\t")
+res_RS_CS<- read.delim("./data_files/RS_CS_DE_25.txt")
+res_sym_RC = res_RS_CS %>%
+  tibble::rownames_to_column(var = "gene_ID")
+```
+
+make your go input files
+```{r}
+#apoP0C
+go_input_apoP0C = res_apo_P0C %>%
+  mutate(mutated_p = -log(pvalue)) %>%
+  mutate(mutated_p_updown = ifelse(log2FoldChange < 0, mutated_p*-1, mutated_p*1)) %>%
+  na.omit() %>%
+  select(gene_ID, mutated_p_updown)
+nrow(go_input_apoP0C)
+#12560
+head(go_input_apoP0C)
+colnames(go_input_apoP0C) <- c("gene", "pval")
+head(go_input_apoP0C)
+write.csv(go_input_apoP0C, file="./data_files/apoP0C_GO.csv", quote=F, row.names=FALSE)
+
+#apoP2C
+go_input_apoP2C = res_apo_P2C %>%
+  mutate(mutated_p = -log(pvalue)) %>%
+  mutate(mutated_p_updown = ifelse(log2FoldChange < 0, mutated_p*-1, mutated_p*1)) %>%
+  na.omit() %>%
+  select(gene_ID, mutated_p_updown)
+nrow(go_input_apoP2C)
+#14158
+head(go_input_apoP2C)
+colnames(go_input_apoP2C) <- c("gene", "pval")
+head(go_input_apoP2C)
+write.csv(go_input_apoP2C, file="./data_files/apoP2C_GO.csv", quote=F, row.names=FALSE)
+
+#apoRC
+go_input_apoRC = res_apo_RC %>%
+  mutate(mutated_p = -log(pvalue)) %>%
+  mutate(mutated_p_updown = ifelse(log2FoldChange < 0, mutated_p*-1, mutated_p*1)) %>%
+  na.omit() %>%
+  select(gene_ID, mutated_p_updown)
+nrow(go_input_apoRC)
+#11494
+head(go_input_apoRC)
+colnames(go_input_apoRC) <- c("gene", "pval")
+head(go_input_apoRC)
+write.csv(go_input_apoRC, file="./data_files/apoRC_GO.csv", quote=F, row.names=FALSE)
+
+#symP0C
+go_input_symP0C = res_sym_P0C %>%
+  mutate(mutated_p = -log(pvalue)) %>%
+  mutate(mutated_p_updown = ifelse(log2FoldChange < 0, mutated_p*-1, mutated_p*1)) %>%
+  na.omit() %>%
+  select(gene_ID, mutated_p_updown)
+nrow(go_input_symP0C)
+#15756
+head(go_input_symP0C)
+colnames(go_input_symP0C) <- c("gene", "pval")
+head(go_input_symP0C)
+write.csv(go_input_symP0C, file="./data_files/symP0C_GO.csv", quote=F, row.names=FALSE)
+
+#symP2C
+go_input_symP2C = res_sym_P2C %>%
+  mutate(mutated_p = -log(pvalue)) %>%
+  mutate(mutated_p_updown = ifelse(log2FoldChange < 0, mutated_p*-1, mutated_p*1)) %>%
+  na.omit() %>%
+  select(gene_ID, mutated_p_updown)
+nrow(go_input_symP2C)
+#14690
+head(go_input_symP2C)
+colnames(go_input_symP2C) <- c("gene", "pval")
+head(go_input_symP2C)
+write.csv(go_input_symP2C, file="./data_files/symP2C_GO.csv", quote=F, row.names=FALSE)
+
+#symRC
+go_input_symRC = res_sym_RC %>%
+  mutate(mutated_p = -log(pvalue)) %>%
+  mutate(mutated_p_updown = ifelse(log2FoldChange < 0, mutated_p*-1, mutated_p*1)) %>%
+  na.omit() %>%
+  select(gene_ID, mutated_p_updown)
+nrow(go_input_symRC)
+#16288
+head(go_input_symRC)
+colnames(go_input_symRC) <- c("gene", "pval")
+head(go_input_symRC)
+write.csv(go_input_symRC, file="./data_files/symRC_GO.csv", quote=F, row.names=FALSE)
+```
+
+GO (changed isogroup to AIPGENE in the iso2go file) --> make sure you're in the data_files working directory here
+```{r}
+#apoP0C
+input="apoP0C_GO.csv"
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo"
+goDivision="BP"
+source("gomwu.functions.R")
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.1,
+           smallest=5,
+           clusterCutHeight=0.25)
+#261
+resultsBP=gomwuPlot(input,goAnnotations,goDivision,
+                    absValue=1,
+                    level1=0.1,
+                    level2=0.05,
+                    level3=0.01,
+                    txtsize=1.5,
+                    treeHeight=0.5,
+)
+#saved as BP_apoP0C_051425 as portrait with 45x10 dimensions in Figures
+
+
+
+#symP0C
+input="symP0C_GO.csv"
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo"
+goDivision="BP"
+source("gomwu.functions.R")
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.1,
+           smallest=5,
+           clusterCutHeight=0.25)
+#140
+resultsBP=gomwuPlot(input,goAnnotations,goDivision,
+                    absValue=1,
+                    level1=0.1,
+                    level2=0.05,
+                    level3=0.01,
+                    txtsize=1.5,
+                    treeHeight=0.5,
+)
+#saved as BP_symP0C_051425 as portrait with 30x10 dimensions in Figures
+
+#apoP2C
+input="apoP2C_GO.csv"
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo"
+goDivision="BP"
+source("gomwu.functions.R")
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.1,
+           smallest=5,
+           clusterCutHeight=0.25)
+#259
+resultsBP=gomwuPlot(input,goAnnotations,goDivision,
+                    absValue=1,
+                    level1=0.1,
+                    level2=0.05,
+                    level3=0.01,
+                    txtsize=1.5,
+                    treeHeight=0.5,
+)
+#saved as BP_apoP2C_051425 as portrait with 45x10 dimensions in Figures
+
+#symP2C
+input="symP2C_GO.csv"
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo"
+goDivision="BP"
+source("gomwu.functions.R")
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.1,
+           smallest=5,
+           clusterCutHeight=0.25)
+#154
+resultsBP=gomwuPlot(input,goAnnotations,goDivision,
+                    absValue=1,
+                    level1=0.1,
+                    level2=0.05,
+                    level3=0.01,
+                    txtsize=1.5,
+                    treeHeight=0.5,
+)
+#saved as BP_symP2C_051425 as portrait with 30x10 dimensions in Figures
+
+#apoRC
+input="apoRC_GO.csv"
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo"
+goDivision="BP"
+source("gomwu.functions.R")
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.1,
+           smallest=5,
+           clusterCutHeight=0.25)
+#106
+resultsBP=gomwuPlot(input,goAnnotations,goDivision,
+                    absValue=1,
+                    level1=0.1,
+                    level2=0.05,
+                    level3=0.01,
+                    txtsize=1.5,
+                    treeHeight=0.5,
+)
+#saved as BP_apoRC_051425 as portrait with 25x10 dimensions in Figures
+
+#symRC
+input="symRC_GO.csv"
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo"
+goDivision="BP"
+source("gomwu.functions.R")
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.1,
+           smallest=5,
+           clusterCutHeight=0.25)
+#111
+resultsBP=gomwuPlot(input,goAnnotations,goDivision,
+                    absValue=1,
+                    level1=0.1,
+                    level2=0.05,
+                    level3=0.01,
+                    txtsize=1.5,
+                    treeHeight=0.5,
+)
+#saved as BP_symRC_051425 as portrait with 25x10 dimensions in Figures
+```
+
+Now compare the GO delta ranks
+Read in the MWU_BP files generated from BP GO analysis
+```{r}
+mwu_apoP0C_goBP=read.table("./data_files/MWU_BP_apoP0C_GO.csv",header=T, sep = " ")
+mwu_symP0C_goBP=read.table("./data_files/MWU_BP_symP0C_GO.csv",header=T, sep = " ")
+
+mwu_apoP2C_goBP=read.table("./data_files/MWU_BP_apoP2C_GO.csv",header=T, sep = " ")
+mwu_symP2C_goBP=read.table("./data_files/MWU_BP_symP2C_GO.csv",header=T, sep = " ")
+
+mwu_apoRC_goBP=read.table("./data_files/MWU_BP_apoRC_GO.csv",header=T, sep = " ")
+mwu_symRC_goBP=read.table("./data_files/MWU_BP_symRC_GO.csv",header=T, sep = " ")
+
+#15 pairwise comps
+```
+
+Make all your pairwise comparisons
+```{r}
+#### apoP0C to symP0C
+goods_AP0C_SP0C=intersect(mwu_apoP0C_goBP$name, mwu_symP0C_goBP$name)
+apo_goBP_1_AP0C <- mwu_apoP0C_goBP[mwu_apoP0C_goBP$name %in% goods_AP0C_SP0C,]
+sym_goBP_1_AP0C <- mwu_symP0C_goBP[mwu_symP0C_goBP$name %in% goods_AP0C_SP0C,]
+# all overlapping GO terms
+ress_AP0C_SP0C <- merge(apo_goBP_1_AP0C, sym_goBP_1_AP0C, by="name")
+# GO terms highly sig in both datasets
+sigs_AP0C_SP0C=ress_AP0C_SP0C[ress_AP0C_SP0C$p.adj.x<=0.1 & ress_AP0C_SP0C$p.adj.y<=0.1,]
+dim(sigs_AP0C_SP0C)
+# 35 GO terms that are significant and shared between both by name
+head(sigs_AP0C_SP0C)
+write.table(sigs_AP0C_SP0C, file="./data_files/sigs_AP0C_SP0C_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_AP0C_SP0C <- read.table("./data_files/sigs_AP0C_SP0C_GO_name.txt", header=T, sep="\t")
+head(sigs_AP0C_SP0C)
+
+#### apoP2C to symP2C
+goods_AP2C_SP2C=intersect(mwu_apoP2C_goBP$name, mwu_symP2C_goBP$name)
+apo_goBP_1_AP2C <- mwu_apoP2C_goBP[mwu_apoP2C_goBP$name %in% goods_AP2C_SP2C,]
+sym_goBP_1_AP2C <- mwu_symP2C_goBP[mwu_symP2C_goBP$name %in% goods_AP2C_SP2C,]
+# all overlapping GO terms
+ress_AP2C_SP2C <- merge(apo_goBP_1_AP2C, sym_goBP_1_AP2C, by="name")
+# GO terms highly sig in both datasets
+sigs_AP2C_SP2C=ress_AP2C_SP2C[ress_AP2C_SP2C$p.adj.x<=0.1 & ress_AP2C_SP2C$p.adj.y<=0.1,]
+dim(sigs_AP2C_SP2C)
+# 73 GO terms that are significant and shared between both by name
+head(sigs_AP2C_SP2C)
+write.table(sigs_AP2C_SP2C, file="./data_files/sigs_AP2C_SP2C_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_AP2C_SP2C <- read.table("./data_files/sigs_AP2C_SP2C_GO_name.txt", header=T, sep="\t")
+head(sigs_AP2C_SP2C)
+
+#### apoRC to symRC
+goods_ARC_SRC=intersect(mwu_apoRC_goBP$name, mwu_symRC_goBP$name)
+apo_goBP_1_ARC <- mwu_apoRC_goBP[mwu_apoRC_goBP$name %in% goods_ARC_SRC,]
+sym_goBP_1_SRC <- mwu_symRC_goBP[mwu_symRC_goBP$name %in% goods_ARC_SRC,]
+# all overlapping GO terms
+ress_ARC_SRC <- merge(apo_goBP_1_ARC, sym_goBP_1_SRC, by="name")
+# GO terms highly sig in both datasets
+sigs_ARC_SRC=ress_ARC_SRC[ress_ARC_SRC$p.adj.x<=0.1 & ress_ARC_SRC$p.adj.y<=0.1,]
+dim(sigs_ARC_SRC)
+# 13 GO terms that are significant and shared between both by name
+head(sigs_ARC_SRC)
+write.table(sigs_ARC_SRC, file="./data_files/sigs_ARC_SRC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_ARC_SRC <- read.table("./data_files/sigs_ARC_SRC_GO_name.txt", header=T, sep="\t")
+head(sigs_ARC_SRC)
+
+
+
+#### apoP0C to apoP2C
+goods_AP0C_AP2C=intersect(mwu_apoP0C_goBP$name, mwu_apoP2C_goBP$name)
+apo_goBP_1_AP0C <- mwu_apoP0C_goBP[mwu_apoP0C_goBP$name %in% goods_AP0C_AP2C,]
+apo_goBP_1_AP2C <- mwu_apoP2C_goBP[mwu_apoP2C_goBP$name %in% goods_AP0C_AP2C,]
+# all overlapping GO terms
+ress_AP0C_AP2C <- merge(apo_goBP_1_AP0C, apo_goBP_1_AP2C, by="name")
+# GO terms highly sig in both datasets
+sigs_AP0C_AP2C=ress_AP0C_AP2C[ress_AP0C_AP2C$p.adj.x<=0.1 & ress_AP0C_AP2C$p.adj.y<=0.1,]
+dim(sigs_AP0C_AP2C)
+# 114 GO terms that are significant and shared between both by name
+head(sigs_AP0C_AP2C)
+write.table(sigs_AP0C_AP2C, file="./data_files/sigs_AP0C_AP2C_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_AP0C_AP2C <- read.table("./data_files/sigs_AP0C_AP2C_GO_name.txt", header=T, sep="\t")
+head(sigs_AP0C_AP2C)
+
+#### apoP0C to symP2C
+goods_AP0C_SP2C=intersect(mwu_apoP0C_goBP$name, mwu_symP2C_goBP$name)
+apo_goBP_1_AP0C <- mwu_apoP0C_goBP[mwu_apoP0C_goBP$name %in% goods_AP0C_SP2C,]
+sym_goBP_1_SP2C <- mwu_symP2C_goBP[mwu_symP2C_goBP$name %in% goods_AP0C_SP2C,]
+# all overlapping GO terms
+ress_AP0C_SP2C <- merge(apo_goBP_1_AP0C, sym_goBP_1_SP2C, by="name")
+# GO terms highly sig in both datasets
+sigs_AP0C_SP2C=ress_AP0C_SP2C[ress_AP0C_SP2C$p.adj.x<=0.1 & ress_AP0C_SP2C$p.adj.y<=0.1,]
+dim(sigs_AP0C_SP2C)
+# 41 GO terms that are significant and shared between both by name
+head(sigs_AP0C_SP2C)
+write.table(sigs_AP0C_SP2C, file="./data_files/sigs_AP0C_SP2C_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_AP0C_SP2C <- read.table("./data_files/sigs_AP0C_SP2C_GO_name.txt", header=T, sep="\t")
+head(sigs_AP0C_SP2C)
+
+#### apoP0C to apoRC
+goods_AP0C_ARC=intersect(mwu_apoP0C_goBP$name, mwu_apoRC_goBP$name)
+apo_goBP_1_AP0C <- mwu_apoP0C_goBP[mwu_apoP0C_goBP$name %in% goods_AP0C_ARC,]
+apo_goBP_1_ARC <- mwu_apoRC_goBP[mwu_apoRC_goBP$name %in% goods_AP0C_ARC,]
+# all overlapping GO terms
+ress_AP0C_ARC <- merge(apo_goBP_1_AP0C, apo_goBP_1_ARC, by="name")
+# GO terms highly sig in both datasets
+sigs_AP0C_ARC=ress_AP0C_ARC[ress_AP0C_ARC$p.adj.x<=0.1 & ress_AP0C_ARC$p.adj.y<=0.1,]
+dim(sigs_AP0C_ARC)
+# 56 GO terms that are significant and shared between both by name
+head(sigs_AP0C_ARC)
+write.table(sigs_AP0C_ARC, file="./data_files/sigs_AP0C_ARC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_AP0C_ARC <- read.table("./data_files/sigs_AP0C_ARC_GO_name.txt", header=T, sep="\t")
+head(sigs_AP0C_ARC)
+
+#### apoP0C to symRC
+goods_AP0C_SRC=intersect(mwu_apoP0C_goBP$name, mwu_symRC_goBP$name)
+apo_goBP_1_AP0C <- mwu_apoP0C_goBP[mwu_apoP0C_goBP$name %in% goods_AP0C_SRC,]
+sym_goBP_1_SRC <- mwu_symRC_goBP[mwu_apoRC_goBP$name %in% goods_AP0C_SRC,]
+# all overlapping GO terms
+ress_AP0C_SRC <- merge(apo_goBP_1_AP0C, sym_goBP_1_SRC, by="name")
+# GO terms highly sig in both datasets
+sigs_AP0C_SRC=ress_AP0C_SRC[ress_AP0C_SRC$p.adj.x<=0.1 & ress_AP0C_SRC$p.adj.y<=0.1,]
+dim(sigs_AP0C_SRC)
+# 20 GO terms that are significant and shared between both by name
+head(sigs_AP0C_SRC)
+write.table(sigs_AP0C_SRC, file="./data_files/sigs_AP0C_SRC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_AP0C_SRC <- read.table("./data_files/sigs_AP0C_SRC_GO_name.txt", header=T, sep="\t")
+head(sigs_AP0C_SRC)
+
+
+#### symP0C to apoP2C
+goods_SP0C_AP2C=intersect(mwu_symP0C_goBP$name, mwu_apoP2C_goBP$name)
+sym_goBP_1_SP0C <- mwu_symP0C_goBP[mwu_symP0C_goBP$name %in% goods_SP0C_AP2C,]
+apo_goBP_1_AP2C <- mwu_apoP2C_goBP[mwu_apoP2C_goBP$name %in% goods_SP0C_AP2C,]
+# all overlapping GO terms
+ress_SP0C_AP2C <- merge(sym_goBP_1_SP0C, apo_goBP_1_AP2C, by="name")
+# GO terms highly sig in both datasets
+sigs_SP0C_AP2C=ress_SP0C_AP2C[ress_SP0C_AP2C$p.adj.x<=0.1 & ress_SP0C_AP2C$p.adj.y<=0.1,]
+dim(sigs_SP0C_AP2C)
+# 37 GO terms that are significant and shared between both by name
+head(sigs_SP0C_AP2C)
+write.table(sigs_SP0C_AP2C, file="./data_files/sigs_SP0C_AP2C_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_SP0C_AP2C <- read.table("./data_files/sigs_SP0C_AP2C_GO_name.txt", header=T, sep="\t")
+head(sigs_SP0C_AP2C)
+
+#### symP0C to symP2C
+goods_SP0C_SP2C=intersect(mwu_symP0C_goBP$name, mwu_symP2C_goBP$name)
+sym_goBP_1_SP0C <- mwu_symP0C_goBP[mwu_symP0C_goBP$name %in% goods_SP0C_SP2C,]
+sym_goBP_1_SP2C <- mwu_symP2C_goBP[mwu_symP2C_goBP$name %in% goods_SP0C_SP2C,]
+# all overlapping GO terms
+ress_SP0C_SP2C <- merge(sym_goBP_1_SP0C, sym_goBP_1_SP2C, by="name")
+# GO terms highly sig in both datasets
+sigs_SP0C_SP2C=ress_SP0C_SP2C[ress_SP0C_SP2C$p.adj.x<=0.1 & ress_SP0C_SP2C$p.adj.y<=0.1,]
+dim(sigs_SP0C_SP2C)
+# 25 GO terms that are significant and shared between both by name
+head(sigs_SP0C_SP2C)
+write.table(sigs_SP0C_SP2C, file="./data_files/sigs_SP0C_SP2C_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_SP0C_SP2C <- read.table("./data_files/sigs_SP0C_SP2C_GO_name.txt", header=T, sep="\t")
+head(sigs_SP0C_SP2C)
+
+#### symP0C to apoRC
+goods_SP0C_ARC=intersect(mwu_symP0C_goBP$name, mwu_apoRC_goBP$name)
+sym_goBP_1_SP0C <- mwu_symP0C_goBP[mwu_symP0C_goBP$name %in% goods_SP0C_ARC,]
+apo_goBP_1_ARC <- mwu_apoRC_goBP[mwu_apoRC_goBP$name %in% goods_SP0C_ARC,]
+# all overlapping GO terms
+ress_SP0C_ARC <- merge(sym_goBP_1_SP0C, apo_goBP_1_ARC, by="name")
+# GO terms highly sig in both datasets
+sigs_SP0C_ARC=ress_SP0C_ARC[ress_SP0C_ARC$p.adj.x<=0.1 & ress_SP0C_ARC$p.adj.y<=0.1,]
+dim(sigs_SP0C_ARC)
+# 33 GO terms that are significant and shared between both by name
+head(sigs_SP0C_ARC)
+write.table(sigs_SP0C_ARC, file="./data_files/sigs_SP0C_ARC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_SP0C_ARC <- read.table("./data_files/sigs_SP0C_ARC_GO_name.txt", header=T, sep="\t")
+head(sigs_SP0C_ARC)
+
+#### symP0C to symRC
+goods_SP0C_SRC=intersect(mwu_symP0C_goBP$name, mwu_symRC_goBP$name)
+sym_goBP_1_SP0C <- mwu_symP0C_goBP[mwu_symP0C_goBP$name %in% goods_SP0C_SRC,]
+sym_goBP_1_SRC <- mwu_symRC_goBP[mwu_symRC_goBP$name %in% goods_SP0C_SRC,]
+# all overlapping GO terms
+ress_SP0C_SRC <- merge(sym_goBP_1_SP0C, sym_goBP_1_SRC, by="name")
+# GO terms highly sig in both datasets
+sigs_SP0C_SRC=ress_SP0C_SRC[ress_SP0C_SRC$p.adj.x<=0.1 & ress_SP0C_SRC$p.adj.y<=0.1,]
+dim(sigs_SP0C_SRC)
+# 27 GO terms that are significant and shared between both by name
+head(sigs_SP0C_SRC)
+write.table(sigs_SP0C_SRC, file="./data_files/sigs_SP0C_SRC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_SP0C_SRC <- read.table("./data_files/sigs_SP0C_SRC_GO_name.txt", header=T, sep="\t")
+head(sigs_SP0C_SRC)
+
+#### apoP2C to apoRC
+goods_AP2C_ARC=intersect(mwu_apoP2C_goBP$name, mwu_apoRC_goBP$name)
+apo_goBP_1_AP2C <- mwu_apoP2C_goBP[mwu_apoP2C_goBP$name %in% goods_AP2C_ARC,]
+apo_goBP_1_ARC <- mwu_apoRC_goBP[mwu_apoRC_goBP$name %in% goods_AP2C_ARC,]
+# all overlapping GO terms
+ress_AP2C_ARC <- merge(apo_goBP_1_AP2C, apo_goBP_1_ARC, by="name")
+# GO terms highly sig in both datasets
+sigs_AP2C_ARC=ress_AP2C_ARC[ress_AP2C_ARC$p.adj.x<=0.1 & ress_AP2C_ARC$p.adj.y<=0.1,]
+dim(sigs_AP2C_ARC)
+# 67 GO terms that are significant and shared between both by name
+head(sigs_AP2C_ARC)
+write.table(sigs_AP2C_ARC, file="./data_files/sigs_AP2C_ARC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_AP2C_ARC <- read.table("./data_files/sigs_AP2C_ARC_GO_name.txt", header=T, sep="\t")
+head(sigs_AP2C_ARC)
+
+#### apoP2C to symRC
+goods_AP2C_SRC=intersect(mwu_apoP2C_goBP$name, mwu_symRC_goBP$name)
+apo_goBP_1_AP2C <- mwu_apoP2C_goBP[mwu_apoP2C_goBP$name %in% goods_AP2C_SRC,]
+sym_goBP_1_SRC <- mwu_symRC_goBP[mwu_symRC_goBP$name %in% goods_AP2C_SRC,]
+# all overlapping GO terms
+ress_AP2C_SRC <- merge(apo_goBP_1_AP2C, sym_goBP_1_SRC, by="name")
+# GO terms highly sig in both datasets
+sigs_AP2C_SRC=ress_AP2C_SRC[ress_AP2C_SRC$p.adj.x<=0.1 & ress_AP2C_SRC$p.adj.y<=0.1,]
+dim(sigs_AP2C_SRC)
+# 18 GO terms that are significant and shared between both by name
+head(sigs_AP2C_SRC)
+write.table(sigs_AP2C_SRC, file="./data_files/sigs_AP2C_SRC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_AP2C_SRC <- read.table("./data_files/sigs_AP2C_SRC_GO_name.txt", header=T, sep="\t")
+head(sigs_AP2C_SRC)
+
+#### symP2C to symRC
+goods_SP2C_SRC=intersect(mwu_symP2C_goBP$name, mwu_symRC_goBP$name)
+sym_goBP_1_SP2C <- mwu_symP2C_goBP[mwu_symP2C_goBP$name %in% goods_SP2C_SRC,]
+sym_goBP_1_SRC <- mwu_symRC_goBP[mwu_symRC_goBP$name %in% goods_SP2C_SRC,]
+# all overlapping GO terms
+ress_SP2C_SRC <- merge(sym_goBP_1_SP2C, sym_goBP_1_SRC, by="name")
+# GO terms highly sig in both datasets
+sigs_SP2C_SRC=ress_SP2C_SRC[ress_SP2C_SRC$p.adj.x<=0.1 & ress_SP2C_SRC$p.adj.y<=0.1,]
+dim(sigs_SP2C_SRC)
+# 18 GO terms that are significant and shared between both by name
+head(sigs_SP2C_SRC)
+write.table(sigs_SP2C_SRC, file="./data_files/sigs_SP2C_SRC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_SP2C_SRC <- read.table("./data_files/sigs_SP2C_SRC_GO_name.txt", header=T, sep="\t")
+head(sigs_SP2C_SRC)
+
+#### symP2C to apoRC
+goods_SP2C_ARC=intersect(mwu_symP2C_goBP$name, mwu_apoRC_goBP$name)
+sym_goBP_1_SP2C <- mwu_symP2C_goBP[mwu_symP2C_goBP$name %in% goods_SP2C_ARC,]
+apo_goBP_1_ARC <- mwu_apoRC_goBP[mwu_apoRC_goBP$name %in% goods_SP2C_ARC,]
+# all overlapping GO terms
+ress_SP2C_ARC <- merge(sym_goBP_1_SP2C, apo_goBP_1_ARC, by="name")
+# GO terms highly sig in both datasets
+sigs_SP2C_ARC=ress_SP2C_ARC[ress_SP2C_ARC$p.adj.x<=0.1 & ress_SP2C_ARC$p.adj.y<=0.1,]
+dim(sigs_SP2C_ARC)
+# 17 GO terms that are significant and shared between both by name
+head(sigs_SP2C_ARC)
+write.table(sigs_SP2C_ARC, file="./data_files/sigs_SP2C_ARC_GO_name.txt", quote=F, sep="\t", row.names=FALSE)
+sigs_SP2C_ARC <- read.table("./data_files/sigs_SP2C_ARC_GO_name.txt", header=T, sep="\t")
+head(sigs_SP2C_ARC)
+```
+
+Create a bubbleplot of GO terms that are significantly over or underrepresented in at least two comparisons
+```{r}
+#CLEAN TO HAVE THE RIGHT X V Y
+#apoP0C
+AP0C_1 <- sigs_AP0C_SP0C %>%
+  select(name, delta.rank.x)
+AP0C_2 <- sigs_AP0C_AP2C %>%
+  select(name, delta.rank.x)
+AP0C_3 <- sigs_AP0C_ARC %>%
+  select(name, delta.rank.x)
+AP0C_4 <- sigs_AP0C_SP2C %>%
+  select(name, delta.rank.x)
+AP0C_5 <- sigs_AP0C_SRC %>%
+  select(name, delta.rank.x)
+AP0C <- rbind(AP0C_1, AP0C_2, AP0C_3, AP0C_4, AP0C_5)
+AP0C <- distinct(AP0C, .keep_all=FALSE)
+colnames(AP0C) <- paste(c("GO_Group","AP0C"))
+AP0C <- as.data.frame(AP0C)
+nrow(AP0C)
+#149
+
+#symP0C
+SP0C_1 <- sigs_AP0C_SP0C %>%
+  select(name, delta.rank.y)
+colnames(SP0C_1) <- paste(c("name", "delta.rank.x"))
+SP0C_2 <- sigs_SP0C_AP2C %>%
+  select(name, delta.rank.x)
+SP0C_3 <- sigs_SP0C_ARC %>%
+  select(name, delta.rank.x)
+SP0C_4 <- sigs_SP0C_SP2C %>%
+  select(name, delta.rank.x)
+SP0C_5 <- sigs_SP0C_SRC %>%
+  select(name, delta.rank.x)
+SP0C <- rbind(SP0C_1, SP0C_2, SP0C_3, SP0C_4, SP0C_5)
+SP0C <- distinct(SP0C, .keep_all=FALSE)
+colnames(SP0C) <- paste(c("GO_Group","SP0C"))
+SP0C <- as.data.frame(SP0C)
+nrow(SP0C)
+#84
+
+#apoP2C
+AP2C_1 <- sigs_AP0C_AP2C %>%
+  select(name, delta.rank.y)
+colnames(AP2C_1) <- paste(c("name", "delta.rank.x"))
+AP2C_2 <- sigs_SP0C_AP2C %>%
+  select(name, delta.rank.y)
+colnames(AP2C_2) <- paste(c("name", "delta.rank.x"))
+AP2C_3 <- sigs_AP2C_ARC %>%
+  select(name, delta.rank.x)
+AP2C_4 <- sigs_AP2C_SP2C %>%
+  select(name, delta.rank.x)
+AP2C_5 <- sigs_AP2C_SRC %>%
+  select(name, delta.rank.x)
+AP2C <- rbind(AP2C_1, AP2C_2, AP2C_3, AP2C_4, AP2C_5)
+AP2C <- distinct(AP2C, .keep_all=FALSE)
+colnames(AP2C) <- paste(c("GO_Group","AP2C"))
+AP2C <- as.data.frame(AP2C)
+nrow(AP2C)
+#183
+
+#symP2C
+SP2C_1 <- sigs_AP0C_SP2C %>%
+  select(name, delta.rank.y)
+colnames(SP2C_1) <- paste(c("name", "delta.rank.x"))
+SP2C_2 <- sigs_AP2C_SP2C %>%
+  select(name, delta.rank.y)
+colnames(SP2C_2) <- paste(c("name", "delta.rank.x"))
+SP2C_3 <- sigs_SP0C_SP2C %>%
+  select(name, delta.rank.y)
+colnames(SP2C_3) <- paste(c("name", "delta.rank.x"))
+SP2C_4 <- sigs_SP2C_ARC %>%
+  select(name, delta.rank.x)
+SP2C_5 <- sigs_SP2C_SRC %>%
+  select(name, delta.rank.x)
+SP2C <- rbind(SP2C_1, SP2C_2, SP2C_3, SP2C_4, SP2C_5)
+SP2C <- distinct(SP2C, .keep_all=FALSE)
+colnames(SP2C) <- paste(c("GO_Group","SP2C"))
+SP2C <- as.data.frame(SP2C)
+nrow(SP2C)
+#100
+
+#apoRC
+ARC_1 <- sigs_AP0C_ARC %>%
+  select(name, delta.rank.y)
+colnames(ARC_1) <- paste(c("name", "delta.rank.x"))
+ARC_2 <- sigs_AP2C_ARC %>%
+  select(name, delta.rank.y)
+colnames(ARC_2) <- paste(c("name", "delta.rank.x"))
+ARC_3 <- sigs_ARC_SRC %>%
+  select(name, delta.rank.x)
+ARC_4 <- sigs_SP0C_ARC %>%
+  select(name, delta.rank.y)
+colnames(ARC_4) <- paste(c("name", "delta.rank.x"))
+ARC_5 <- sigs_SP2C_ARC %>%
+  select(name, delta.rank.y)
+colnames(ARC_5) <- paste(c("name", "delta.rank.x"))
+ARC <- rbind(ARC_1, ARC_2, ARC_3, ARC_4, ARC_5)
+ARC <- distinct(ARC, .keep_all=FALSE)
+colnames(ARC) <- paste(c("GO_Group","ARC"))
+ARC <- as.data.frame(ARC)
+nrow(ARC)
+#91
+
+#symRC
+SRC_1 <- sigs_AP0C_SRC %>%
+  select(name, delta.rank.y)
+colnames(SRC_1) <- paste(c("name", "delta.rank.x"))
+SRC_2 <- sigs_AP2C_SRC %>%
+  select(name, delta.rank.y)
+colnames(SRC_2) <- paste(c("name", "delta.rank.x"))
+SRC_3 <- sigs_ARC_SRC %>%
+  select(name, delta.rank.y)
+colnames(SRC_3) <- paste(c("name", "delta.rank.x"))
+SRC_4 <- sigs_SP0C_SRC %>%
+  select(name, delta.rank.y)
+colnames(SRC_4) <- paste(c("name", "delta.rank.x"))
+SRC_5 <- sigs_SP2C_SRC %>%
+  select(name, delta.rank.y)
+colnames(SRC_5) <- paste(c("name", "delta.rank.x"))
+SRC <- rbind(SRC_1, SRC_2, SRC_3, SRC_4, SRC_5)
+SRC <- distinct(SRC, .keep_all=FALSE)
+colnames(SRC) <- paste(c("GO_Group","SRC"))
+SRC <- as.data.frame(SRC)
+nrow(SRC)
+#58
+
+
+AP0C_SP0C <- full_join(AP0C, SP0C)
+nrow(AP0C_SP0C)
+#198
+
+AP2C_AP0C_SP0C <- full_join(AP2C, AP0C_SP0C)
+
+SP2C_AP2C_AP0C_SP0C <- full_join(SP2C, AP2C_AP0C_SP0C)
+
+ARC_SP2C_AP2C_AP0C_SP0C <- full_join(ARC, SP2C_AP2C_AP0C_SP0C)
+
+SRC_ARC_SP2C_AP2C_AP0C_SP0C <- full_join(SRC, ARC_SP2C_AP2C_AP0C_SP0C)
+nrow(SRC_ARC_SP2C_AP2C_AP0C_SP0C)
+#259
+
+write.table(SRC_ARC_SP2C_AP2C_AP0C_SP0C, file="./data_files/GOdeltarank_all.txt", quote=F, sep="\t", row.names=FALSE)
+
+#use melt to change it to a long format
+melted <- melt(SRC_ARC_SP2C_AP2C_AP0C_SP0C)
+head(melted)
+#melted <- distinct(melted, .keep_all=FALSE)
+nrow(melted)
+#1554
+
+bubbleplot <- ggplot(melted, aes(x=variable, y=GO_Group, fill=factor(sign(value)), size=abs(value))) +
+      geom_point(shape=21, color="black") +
+      scale_fill_manual(values=c("#A6CEE3", "#FB9A99"),guide="none")+
+      scale_size_continuous(limits=c(NA,3500), breaks=c(500,500,1000,1000,1500,1500,2000,2000,2500,2500,3000,3000,3500,3500),labels=c(3500,3000,2500,2000,1500,1000,500,-500,-1000,-1500,-2000,-2500,-3000,-3500), range=c(1,7)) +
+      guides(size = guide_legend(override.aes = list(fill = list("#FB9A99","#FB9A99","#FB9A99","#FB9A99","#FB9A99","#FB9A99","#FB9A99", "#A6CEE3","#A6CEE3","#A6CEE3","#A6CEE3","#A6CEE3", "#A6CEE3", "#A6CEE3"),                                            size=c(7,6,5,4,3,2,1,1,2,3,4,5,6,7))))+
+  xlab("")+
+  ylab("GO Group")+
+  labs(size="Delta Rank Value")+
+  theme(panel.background = element_rect(color="black", fill="grey95"),
+        legend.position="right",
+        legend.background=element_rect(color="black"),
+        legend.text=element_text(face="bold", color="black", size=8),
+        legend.title= element_text(face="bold", colour="black", size=10),
+        legend.text.align = 1,
+        legend.key.size = unit(10,"points"),
+        axis.text = element_text(colour="black", size=10), 
+        axis.title.x = ggtext::element_markdown(face="bold", size=12),
+        axis.title.y = ggtext::element_markdown(face="bold",size=12))
+
+bubbleplot #messy! but saved as bubbleplot_ALL as 40x9 portrait
+
+#let's pull just the immune terms
+all_imm <- SRC_ARC_SP2C_AP2C_AP0C_SP0C[c(111, 144, 156, 168, 169, 172, 173, 187, 188, 189, 193, 194, 195, 196, 199),]
+melted_imm <- melt(all_imm)
+head(melted_imm)
+#melted <- distinct(melted, .keep_all=FALSE)
+nrow(melted_imm)
+#90
+
+bubbleplot_imm <- ggplot(melted_imm, aes(x=variable, y=GO_Group, fill=factor(sign(value)), size=abs(value))) +
+      geom_point(shape=21, color="black") +
+      scale_fill_manual(values=c("#A6CEE3", "#FB9A99"),guide="none")+
+      scale_size_continuous(limits=c(NA,3500), breaks=c(500,500,1000,1000,1500,1500,2000,2000,2500,2500,3000,3000,3500,3500),labels=c(3500,3000,2500,2000,1500,1000,500,-500,-1000,-1500,-2000,-2500,-3000,-3500), range=c(1,7)) +
+      guides(size = guide_legend(override.aes = list(fill = list("#FB9A99","#FB9A99","#FB9A99","#FB9A99","#FB9A99","#FB9A99","#FB9A99", "#A6CEE3","#A6CEE3","#A6CEE3","#A6CEE3","#A6CEE3", "#A6CEE3", "#A6CEE3"),                                            size=c(7,6,5,4,3,2,1,1,2,3,4,5,6,7))))+
+  xlab("")+
+  ylab("GO Group")+
+  labs(size="Delta Rank Value")+
+  theme(panel.background = element_rect(color="black", fill="grey95"),
+        legend.position="right",
+        legend.background=element_rect(color="black"),
+        legend.text=element_text(face="bold", color="black", size=8),
+        legend.title= element_text(face="bold", colour="black", size=10),
+        legend.text.align = 1,
+        legend.key.size = unit(10,"points"),
+        axis.text = element_text(colour="black", size=10), 
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title.x = ggtext::element_markdown(face="bold", size=12),
+        axis.title.y = ggtext::element_markdown(face="bold",size=12))
+
+bubbleplot_imm #saved as bubbleplot_imm as landscape 7x3.5
+```
+
+
+WGCNA
+```{r}
+head(countData_new)
+head(allData_new) # just work with this now but may add in the other stuff later?
+write.csv(allData_new, file="./data_files/allData_new.csv", quote=F, row.names=FALSE)
+head(allData_2)
+allData_3 <- allData_2 %>%
+  column_to_rownames(var="X")
+head(allData_3)
+
+#this is the full metadata
+wgcna_metadata <- read.csv("./data_files/Gnoto_WGCNA_metadata.csv")
+head(wgcna_metadata)
+wgcna_metadata <- wgcna_metadata %>%
+  column_to_rownames(var="anemones") %>%
+  select(-gnoto, -Endo, -ASV1, -ASV3, -ASV7, -ASV70, -relASV1, -relASV3, -relASV7, -relASV70)
+head(wgcna_metadata) #this is traitData in JK's script
+
+str(wgcna_metadata)
+all(rownames(wgcna_metadata) == colnames(countData_new))
+
+dds
+keep.corr = rowSums(counts(dds) >= 2) >= 32 # at least 32 samples (84%, threshold normally is 80%) with a count of 2 or higher (is this the threshold we want?)
+dds_keep = dds[keep.corr,]
+
+vst = vst(dds_keep, blind = TRUE)
+save(vst, dds_keep, file="./data_files/counts_for_wgcna.RData") #not included in github
+DEgenes<-load("./data_files/counts_for_wgcna.RData")
+```
+
+```{r}
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE)
+# Let WGCNA use multi threads (do only once)
+allowWGCNAThreads()  
+
+# transpose data frame
+input = as.data.frame(assay(vst))
+head(input)
+input_t <- t(as.data.frame(assay(vst)))
+```
+
+WGCNA reference here: https://bioinformaticsworkbook.org/dataAnalysis/RNA-Seq/RNA-SeqIntro/wgcna.html#gsc.tab=0
+
+```{r}
+input_df <- data.frame(input) %>%
+  mutate(
+    Gene_id = row.names(input)
+  ) %>%
+  pivot_longer(-Gene_id)
+
+input_df %>% ggplot(., aes(x = name, y = value)) +
+  geom_violin() +
+  geom_point() +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text( angle = 90)
+  ) +
+  ylim(0, NA) +
+  labs(
+    title = "Normalized and 95 quantile Expression",
+    x = "sample",
+    y = "normalized expression"
+  )
+
+ncol(input_t) #number of columns: 16345 number of genes
+nrow(input_t) #number of rows: 39 - matches the number of samples
+```
+
+```{r}
+# filter genes that are useful in WGCNA
+#outlier dection and removal
+gsg = goodSamplesGenes(input_t)
+gsg$allOK #TRUE all genes have passed, no outliers
+
+if (!gsg$allOK)
+{
+  # Optionally, print the gene and sample names that were removed:
+  if (sum(!gsg$goodGenes)>0)
+    printFlush(paste("Removing genes:", paste(names(input)[!gsg$goodGenes], collapse = ", ")));
+  if (sum(!gsg$goodSamples)>0)
+    printFlush(paste("Removing samples:", paste(rownames(input)[!gsg$goodSamples], collapse = ", ")));
+  # Remove the offending genes and samples from the data:
+  input = input[gsg$goodSamples, gsg$goodGenes]
+}
+gsg = goodSamplesGenes(input)
+gsg$allOK #TRUE
+```
+
+```{r}
+### Outlier detection incorporated into trait measures. 
+head(allData_new)
+head(allData_3)
+head(wgcna_metadata)
+
+names(wgcna_metadata)
+
+meanExpressionByArray <- apply(input_t, 1, mean, na.rm = TRUE)
+# plots mean expression across all samples
+barplot(meanExpressionByArray,
+        xlab = "Sample", ylab = "Mean expression",
+        main ="Mean expression across samples",
+        names.arg = c(1:39), cex.names = 0.7)
+```
+
+```{r}
+# look for any obvious deviations in expression across samples
+
+table(rownames(wgcna_metadata)==rownames(input_t)) #should return TRUE if datasets align correctly, otherwise your names are out of order
+
+#sample dendrogram and trait heat map showing outliers
+A<-adjacency(input,type="signed")
+# this calculates the whole network connectivity we choose signed because we care about direction of gene expression
+k<-as.numeric(apply(A,2,sum))-1
+# standardized connectivity
+Z.k<-scale(k)
+#set threshold to -2.65. no outliers remove
+thresholdZ.k<--2.65# often -2.5
+outlierColor<-ifelse(Z.k<thresholdZ.k,"red","black")
+library(flashClust)
+sampleTree <- flashClust(as.dist(1-A), method = "average")
+
+```
+
+```{r}
+#Figure out proper SFT
+# Choose a set of soft-thresholding powers - using default
+powers = c(c(1:10), seq(from = 1, to=30, by=1))
+# Call the network topology analysis function, having networkType signed!
+sft <- pickSoftThreshold(input_t, powerVector = powers, verbose = 5, networkType = "signed") #want smallest value, closest to 0.9 (but still under)
+#R^2 > 0.85 is typically considered indicative of a scale-free topology
+sft
+```
+
+```{r}
+# Plot the results:
+sizeGrWindow(9, 5)
+par(mfrow = c(1,2));
+cex1 = 0.9;
+# Scale-free topology fits index as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
+     main = paste("Scale independence"));
+text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     labels=powers,cex=cex1,col="red");
+# this line corresponds to using an R^2 cut-off of h
+abline(h=0.90,col="red")
+
+# Mean connectivity as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], sft$fitIndices[,5],
+     xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
+     main = paste("Mean connectivity"))
+text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
+#based on R2 seems the lowest to plateau in Mean connectivity and R2 is ~90
+
+softPower=7 #smallest value to plateau at ~0.9 I pick 13 (CHANGED TO 7) as it the the curve starts to plateu in my previous plot
+adjacency=adjacency(input_t, power=softPower,type="signed") #must change method type here too!!
+```
+
+```{r}
+picked_power = 7 ##smallest value to plateau at ~0.9 I pick 7 as it the the curve starts to plateu in my previous plot
+temp_cor <- cor       
+cor <- WGCNA::cor    # Force it to use WGCNA cor function (fix a namespace conflict issue)
+
+netwk <- blockwiseModules(input_t,        # <= input here
+
+                          # == Adjacency Function ==
+                          power = picked_power,          # <= power here
+                          networkType = "signed",
+
+                          # == Tree and Block Options ==
+                          deepSplit = 2,
+                          pamRespectsDendro = F,
+                          # detectCutHeight = 0.75,
+                          minModuleSize = 30,
+                          maxBlockSize = 4000,
+
+                          # == Module Adjustments ==
+                          reassignThreshold = 0,
+                          mergeCutHeight = 0.25,
+
+                          # == TOM == Archive the run results in TOM file (saves time)
+                          saveTOMs = T,
+                          saveTOMFileBase = "ER",
+
+                          # == Output Options
+                          numericLabels = T,
+                          verbose = 3)
+cor <- temp_cor     # Return cor function to original namespace
+```
+
+Let’s take a look at the modules
+```{r}
+# Convert labels to colors for plotting
+mergedColors = labels2colors(netwk$colors)
+# Plot the dendrogram and the module colors underneath
+plotDendroAndColors(
+  netwk$dendrograms[[1]],
+  mergedColors[netwk$blockGenes[[1]]],
+  "Module colors",
+  dendroLabels = FALSE,
+  hang = 0.03,
+  addGuide = TRUE,
+  guideHang = 0.05 )
+#dev.off()
+# saved as dendrogram_thresh_sft13_signed
+```
+
+
+```{r}
+##from jk's code, idk but it's essentially the same as above
+
+#lnames = load(file="Pacuta_Samples_Traits_ALL_no_outlier_fin.RData")
+#translate the adjacency into topological overlap matrix and calculate the corresponding dissimilarity:
+TOM<- TOMsimilarity(adjacency,TOMType = "signed")
+dissTOM= 1-TOM
+
+
+geneTree= flashClust(as.dist(dissTOM), method="average")
+plot(geneTree, xlab="", sub="", main= "Gene Clustering on TOM-based dissimilarity", labels= FALSE,hang=0.04)
+```
+
+```{r}
+#each leaf corresponds to a gene, branches grouping together densely are interconnected, highly co-expressed genes
+minModuleSize=95 #we only want large modules
+dynamicMods= cutreeDynamic(dendro= geneTree, distM= dissTOM, deepSplit=2, pamRespectsDendro= FALSE, minClusterSize= minModuleSize)
+table(dynamicMods)
+
+
+dynamicColors= labels2colors(dynamicMods)
+#plot dendrogram and colors underneath
+#sizeGrWindow(8,6)
+plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut", dendroLabels= FALSE, hang=0.03, addGuide= TRUE, guideHang= 0.05, main= "Gene dendrogram and module colors")
+# saved as dendrogram_thresh_sft13_signed_2
+
+#Merg modules whose expression profiles are very similar
+#calculate eigengenes
+MEList= moduleEigengenes(input_t, colors= dynamicColors)
+
+MEs= MEList$eigengenes
+# if you have error messages trying to generate the eigengene correlations, run this below
+# check MEs, if grey shows NaN for all samples, then make sure to eliminate it using removeGreyME
+
+MEs = removeGreyME(MEs, greyMEName = paste(moduleColor.getMEprefix(), "grey", sep=""))
+#Calculate dissimilarity of module eigenegenes
+MEDiss= 1-cor(MEs)
+#Cluster module eigengenes
+METree= flashClust(as.dist(MEDiss), method= "average")
+
+#plot
+plot(METree, main= "Clustering of module eigengenes", xlab= "", sub= "")
+MEDissThres= 0.25 
+abline(h=MEDissThres, col="red")
+#CLUSTER_TREE_Module_eigengenes
+```
+
+```{r}
+merge= mergeCloseModules(input_t, dynamicColors, cutHeight= MEDissThres, verbose =3)
+
+mergedColors= merge$colors
+mergedMEs= merge$newMEs
+
+plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
+                    c("Dynamic Tree Cut", "Merged dynamic"),
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = FALSE, guideHang = 0.05,lwd=0.3)
+#Cluster_dendo_MergeNetwork_dendrogram_mdist_25
+```
+
+```{r}
+# Rename to moduleColors
+moduleColors= mergedColors
+# Construct numerical labels corresponding to the colors
+colorOrder= c("grey", standardColors(50))
+moduleLabels= match(moduleColors, colorOrder)-1
+MEs=mergedMEs
+MEs = removeGreyME(MEs, greyMEName = paste(moduleColor.getMEprefix(), "grey", sep=""))
+MEDiss = 1-cor(MEs);
+# Cluster module eigengenes
+METree = flashClust(as.dist(MEDiss), method = "average");
+# Plot the result
+plot(METree, xlab = "Merged modules", sub = "")
+
+#get number of genes in each module
+table(moduleColors)
+#    black      blue     brown     green   magenta      pink    purple       red     # 615      4348      2382       989       159       368       143       816 
+#turquoise    yellow 
+    # 5505      1020 
+```
+
+back to website tutorial here
+```{r}
+module_df <- data.frame(
+  gene_id = names(netwk$colors),
+  colors = labels2colors(netwk$colors)
+)
+
+module_df[1:5,]
+#       gene_id colors
+#1 AIPGENE10000   blue
+#2 AIPGENE10001   grey
+#3 AIPGENE10002   blue
+#4 AIPGENE10004   blue
+#5 AIPGENE10006  green
+
+write_delim(module_df,
+            file = "./data_files/gene_modules.txt",
+            delim = "\t")
+
+# Get Module Eigengenes per cluster
+MEs0 <- moduleEigengenes(input_t, mergedColors)$eigengenes
+
+# Reorder modules so similar modules are next to each other
+MEs0 <- orderMEs(MEs0)
+
+#back into JK here
+nGenes <- ncol(input_t)
+nSamples <- nrow(input_t)
+# correlations of genes with eigengenes
+moduleGeneCor <- cor(MEs, input_t)
+moduleGenePvalue <- corPvalueStudent(moduleGeneCor, nSamples)
+moduleTraitCor <- cor(MEs, wgcna_metadata, use = "p")
+moduleTraitPvalue <- corPvalueStudent(moduleTraitCor, nSamples)
+
+# module-trait correlations
+textMatrix <- paste(signif(moduleTraitCor, 2), "\n(",
+                    signif(moduleTraitPvalue, 1), ")", sep = "");
+dim(textMatrix) <- dim(moduleTraitCor)
+par(mar = c(6, 8.5, 3, 3));
+table(moduleColors)
+#moduleColors
+   #black      blue     brown     green   magenta      pink    purple       red 
+   #   615      4348      2382       989       159       368       143       816 
+#turquoise    yellow 
+   # 5505      1020 
+```
+
+```{r}
+# shows only significant correlations
+modLabels <- sub("ME","",names(MEs))
+ps <- signif(moduleTraitPvalue,1)
+cors <- signif(moduleTraitCor,2)
+textMatrix <-  cors;
+textMatrix[ps>0.05]="-"
+dim(textMatrix) <- dim(moduleTraitCor)
+
+mod_df <- data.frame(module = row.names(moduleTraitCor), moduleTraitCor) %>% 
+  gather("trait", "corr", -module, factor_key = TRUE) %>% 
+  mutate(module = factor(module, levels = rownames(moduleTraitCor))) %>% 
+  mutate(module = fct_rev(module))
+
+mod_pval_df <- data.frame(module = row.names(ps), ps) %>% 
+  gather("trait", "pval", -module, factor_key = TRUE) %>% 
+  mutate(module = factor(module, levels = rownames(ps))) %>% 
+  mutate(module = fct_rev(module))
+
+mod_df <- mod_df %>% 
+  add_column(lab = mod_pval_df$pval) %>% 
+  mutate(lab = ifelse(lab > 0.05, "-", round(corr,2)))
+
+#### Heatmap of modules from WGCNA
+theme_bove <- function() {
+  # Define the custom theme here
+  theme_minimal() + 
+    theme(
+      panel.grid.major = element_line(color = "grey80"),
+      panel.grid.minor = element_blank(),
+      axis.text = element_text(size = 12),
+      axis.title = element_text(size = 14, face = "bold")
+    )
+}
+col0 <- colorRampPalette(rev(c("firebrick", "lightcoral", "white", "lightblue", "dodgerblue4")))(100)
+#col0 <- colorRampPalette(rev(c("chocolate1", "#FEE090", "white", "cyan3", "cyan")))(100)
+heatmap <- ggplot(data = mod_df, aes(x = trait, y = module, fill = corr)) +
+  theme_bove() +
+  geom_tile() +
+  geom_text(aes(label = lab), color = "#2f2f2f", size = 3) +
+  scale_fill_gradientn(colors = col0, limits = c(-1, 1)) +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 12),
+    plot.margin = margin(10, 10, 10, 10),
+    axis.ticks = element_blank(),
+    axis.title = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12)
+  ) +
+  scale_x_discrete(labels = colnames(moduleTraitCor)) +
+  guides(fill = guide_colourbar(
+    barwidth = 0.7,
+    barheight = 10,
+    frame.colour = "black",
+    ticks.colour = "black",
+    title = expression(paste("Pearson ", R^{2}))
+  )) +
+  coord_cartesian(expand = FALSE)
+heatmap
+#heatmap_prelim
+
+#### barplot of genes within each module
+mct <- table(moduleColors)
+modLabels_plot <- as.data.frame(mct[rev(modLabels)])
+modLabels_plot2 <- as.character(modLabels_plot$moduleColors)
+#modLabels2 <- gsub("turquoise", "teal", modLabels_plot2)
+
+library(cowplot)
+barplot <- ggplot(data = modLabels_plot, aes(y = Freq, x = moduleColors, fill = moduleColors)) +
+  geom_col(colour = "black", size = 0.1) +
+  scale_fill_manual(values = modLabels_plot2) +
+  theme_cowplot() +
+  coord_flip(expand = FALSE) +
+  #scale_y_manual(limits=c(8000, 0), breaks = c(1000, 2000, 3000,4000,5000,6000,7000,8000)) +
+  geom_text(aes(label = paste0(rev(modLabels), " (", Freq, ")")), hjust = 0.03, color="black", size = 3) +
+  theme(axis.ticks.y = element_blank(), axis.title.y = element_blank(), legend.position = "none", axis.line.y = element_blank(), axis.line.x = element_line(size = 0.2), axis.text.y = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1, size = 10), axis.title.x = element_text(size = 10)) +
+  ylab("# genes\n per module")+
+  scale_y_continuous(limits = c(0,6000), breaks = c(200, 400, 600, 800, 1000, 1200, 1400,1800,2500,3200,4500,6000))
+barplot
+
+barplot2 <- ggplot(data = modLabels_plot, aes(y = Freq, x = moduleColors, fill = moduleColors)) +
+  geom_col(colour = "black", size = 0.1) +
+  scale_fill_manual(values = modLabels_plot2) +
+  theme_cowplot() +
+  coord_flip(expand = FALSE) +
+  geom_text(aes(label = paste0(rev(modLabels), " (", Freq, ")")), hjust = -0.1, color="black", size = 3) +  # Adjust hjust for better positioning
+  theme(axis.ticks.y = element_blank(), axis.title.y = element_blank(), legend.position = "none", 
+        axis.line.y = element_blank(), axis.line.x = element_line(size = 0.2), 
+        axis.text.y = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1, size = 10), 
+        axis.title.x = element_text(size = 10)) +
+  ylab("# genes\n per module") +
+  scale_y_continuous(limits = c(0,6000), breaks = c(400, 800, 1200, 1800,2500,3200,4500,6000))
+barplot2
+
+# Combine heatmap and barplot side by side
+combined_plot <- plot_grid(heatmap, barplot2, ncol = 2, align = "h", rel_widths = c(1.05, 1))
+combined_plot
+#saved as wgcna_full as 12x5
+```
+
+wgcna mod/trait plots and files
+A couple things to do before running functions
+```{r}
+nGenes <- ncol(input_t) # extract number of genes; (datExpr = transposed VSD transformed count data)
+nSamples <- nrow(input_t) # extract number of samples; (datExpr = transposed VSD transformed count data)
+modNames <- substring(names(MEs), 3) # string of all module names 
+
+geneModuleMembership <- as.data.frame(signedKME(input_t,MEs));
+MMPvalue <- as.data.frame(corPvalueStudent(as.matrix(geneModuleMembership), nSamples));
+names(geneModuleMembership) <- paste("MM", modNames, sep="");
+names(MMPvalue) <- paste("p.MM", modNames, sep="")
+datt=input_t
+traits=wgcna_metadata
+vsdWG=vst
+write.csv(geneModuleMembership, file = "./data_files/geneModuleMembership_KME.csv")
+```
+
+```{r}
+table(moduleColors)
+
+# Get unique module names
+unique_modules <- unique(moduleColors)
+unique_modules
+# Create a list of genes by module
+genes_by_module <- lapply(unique_modules, function(module) {
+  colnames(input_t)[moduleColors == module]
+})
+
+# Name the list elements by their module names
+names(genes_by_module) <- unique_modules
+for (module in names(genes_by_module)) {
+  write.table(
+    genes_by_module[[module]],
+    file = paste0("Module_", module, "_genes.txt"),
+    quote = FALSE,
+    row.names = FALSE,
+    col.names = FALSE
+  )
+}
+
+
+## A couple things to do before running functions
+nGenes <- ncol(input_t) # extract number of genes; (datt = transposed VSD transformed count data)
+nSamples <- nrow(input_t) # extract number of samples; (datt = transposed VSD transformed count data)
+modNames <- substring(names(MEs), 3) # string of all module names 
+modNames
+geneModuleMembership <- as.data.frame(signedKME(input_t, MEs));
+MMPvalue <- as.data.frame(corPvalueStudent(as.matrix(geneModuleMembership), nSamples));
+names(geneModuleMembership) <- paste("MM", modNames, sep="");
+names(MMPvalue) <- paste("p.MM", modNames, sep="")
+geneModuleMembership
+write.csv(geneModuleMembership, "./data_files/WGCNA_KMEValuer.csv", quote=F)
+## Select the significant trait/module pairings from the WGCNA heatmap 
+traitMods <- sigMods(matrix = moduleTraitPvalue,alpha=0.05) ## **NOTE: default alpha is set you 0.05 but can be adjusted by specifying 'alpha = XX' here
+
+```
+
+```{r}
+####################
+head(wgcna_metadata)
+module_eigengenes <- MEs
+head(module_eigengenes)
+expDesign_full <- wgcna_metadata
+expDesign_full$anemone<-row.names(expDesign_full)
+all.equal(expDesign_full$anemone, rownames(module_eigengenes))
+
+expDesign_full$treat <- c("P0A", "P0A", "P0A", "P0A", "P0S", "P0S", "P0S", "P0S", "P0S", "CA", "CA", "CA", "CA", "CS", "CS", "CS", "CS", "CS", "P2A", "P2A", "P2A", "P2A", "P2A", "P2S", "P2S", "P2S", "P2S", "P2S", "P2S", "RA", "RA", "RA", "RA", "RA", "RS", "RS", "RS", "RS", "RS")
+expDesign_full$gnoto <- c("plus0ab", "plus0ab", "plus0ab", "plus0ab", "plus0ab", "plus0ab", "plus0ab", "plus0ab", "plus0ab", "control", "control", "control", "control", "control", "control", "control", "control", "control", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "plus2ab", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery", "recovery")
+expDesign_full$symstate <- c("apo", "apo", "apo", "apo", "sym", "sym", "sym", "sym", "sym", "apo", "apo", "apo", "apo", "sym", "sym", "sym", "sym", "sym", "apo", "apo", "apo", "apo", "apo", "sym", "sym", "sym", "sym", "sym", "sym", "apo", "apo", "apo", "apo", "apo", "sym", "sym", "sym", "sym", "sym")
+
+str(expDesign_full)
+des_mat <- model.matrix(~ expDesign_full$treat)
+des_mat
+# lmFit() needs a transposed version of the matrix
+fit <- limma::lmFit(t(module_eigengenes), design = des_mat)
+
+# Apply empirical Bayes to smooth standard errors
+fit <- limma::eBayes(fit)
+# Apply multiple testing correction and obtain stats
+stats_df <- limma::topTable(fit, number = ncol(module_eigengenes)) %>%
+  tibble::rownames_to_column("module")
+head(stats_df)
+#all modules are significant for the combined treatment variable
+```
+
+```{r}
+module_df <- module_eigengenes %>%
+  rownames_to_column("accession_code") %>%
+  # Here we are performing an inner join with a subset of metadata
+  inner_join(expDesign_full %>%
+               select(anemone),
+             by = c("accession_code" = "anemone")
+  )
+head(module_df)
+#save as csv
+write.csv(module_df, file = "./data_files/WGCNA_module_df.csv", row.names = FALSE)
+```
+
+#GO stuff
+```{r}
+#load original data matrix full
+head(countData_new)
+wgcna_countdata <- countData_new
+min_count <- 10
+min_samples <- 5
+
+# Check that the modules txt files include all the correct genes
+MEblack <- read.table(file = "./data_files/Module_black_genes.txt")
+MEblue <- read.table(file = "./data_files/Module_blue_genes.txt")
+MEbrown <- read.table(file = "./data_files/Module_brown_genes.txt")
+MEgreen <- read.table(file = "./data_files/Module_green_genes.txt")
+#MEgreenyellow <- read.table(file = "Module_greenyellow_genes.txt")
+MEmagenta <- read.table(file = "./data_files/Module_magenta_genes.txt")
+MEpink <- read.table(file = "./data_files/Module_pink_genes.txt")
+MEpurple <- read.table(file = "./data_files/Module_purple_genes.txt")
+MEred <- read.table(file = "./data_files/Module_red_genes.txt")
+MEturquoise <- read.table(file = "./data_files/Module_turquoise_genes.txt")
+MEyellow <- read.table(file = "./data_files/Module_yellow_genes.txt")
+```
+
+```{r}
+# Filter genes
+wgcna_countdata <- wgcna_countdata[rowSums(wgcna_countdata >= min_count) >= min_samples, ]
+
+#create a new matrix file that has presence=1, or absence=0 of genes in each module
+# Get a list of all module files in the current directory
+module_files <- list.files(pattern = "./data_files/Module_.*_genes.txt")
+
+# Process each module file
+for (file in module_files) {
+  # Extract the module name from the file name
+  module_name <- gsub("./data_files/Module_|_genes.txt", "", file)
+  
+  # Read the module genes
+  module_genes <- read.table(file, header = FALSE, stringsAsFactors = FALSE)
+  
+  # Create presence/absence vector
+  presence_vector <- as.integer(rownames(wgcna_countdata) %in% module_genes$V1)
+  
+  # Create a new data frame with the presence/absence information
+  presence_data <- data.frame(
+    Gene = rownames(wgcna_countdata),
+    Presence = presence_vector
+  )
+  
+  # Save this data frame to a new CSV file
+  output_file <- paste0("./data_files/Presence_", module_name, ".csv")
+  write.csv(presence_data, output_file, row.names = FALSE)
+}
+```
+
+#Run GOMWU
+in data_files
+```{r}
+#notes when running GOMWU: the input data file should list all genes that were used in WGCNA; the genes that are not included in the module should receive a significance measure of 0, and genes within the module - a kME (correlation) values from WGCNA. If you are analysing signed WGCNA modules, add 'Module=TRUE,Alternative="g"' option when running gomwuStats(); for unsigned modules, just 'Module=TRUE' (see comments in the GO_MWU.R script). 
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo" #this version downloaded on 08/17/25
+
+source("gomwu.functions.R")
+
+#### GOMU goDivision BP ####
+goDivision="BP"
+# plot all with BP then repeat with MF then again with CC
+
+pbrown="Presence_brown.csv"
+pblue = "Presence_blue.csv"
+pyellow = "Presence_yellow.csv"
+pblack = "Presence_black.csv"
+ppink="Presence_pink.csv"
+pturquoise = "Presence_turquoise.csv"
+pred = "Presence_red.csv"
+pgreen = "Presence_green.csv"
+ppurple = "Presence_purple.csv"
+pmagenta = "Presence_magenta.csv"
+#pgreenyellow = "pgreenyellow"
+```
+
+```{r}
+#plot brown module
+pbrown="Presence_brown.csv"
+gomwuStats(pbrown, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#9
+
+gomwuPlot(pbrown,goAnnotations,goDivision,
+          absValue=0.001,  # genes with the measure value exceeding this will be counted as "good genes". This setting is for signed log-pvalues. Specify absValue=0.001 if you are doing Fisher's exact test for standard GO enrichment or analyzing a WGCNA module (all non-zero genes = "good genes").
+          #	absValue=1, # un-remark this if you are using log2-fold changes
+          level1=0.1, # FDR threshold for plotting. Specify level1=1 to plot all GO categories containing genes exceeding the absValue.
+          level2=0.05, # FDR cutoff to print in regular (not italic) font.
+          level3=0.0001, # FDR cutoff to print in large bold font.
+          txtsize=1.5,    # decrease to fit more on one page, or increase (after rescaling the plot so the tree fits the text) for better "word cloud" effect
+          treeHeight=0.25, # height of the hierarchical clustering tree
+          colors=c("chocolate4", "chocolate", "chocolate3",  "gray10") # darker color is more signif
+)
+#saved as brownBP as 8x3 landscape
+```
+
+```{r}
+#plot blue module
+pblue="Presence_blue.csv"
+gomwuStats(pblue, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#122
+
+gomwuPlot(pblue,goAnnotations,goDivision,
+          absValue=0.001,  # genes with the measure value exceeding this will be counted as "good genes". This setting is for signed log-pvalues. Specify absValue=0.001 if you are doing Fisher's exact test for standard GO enrichment or analyzing a WGCNA module (all non-zero genes = "good genes").
+          #	absValue=1, # un-remark this if you are using log2-fold changes
+          level1=0.1, # FDR threshold for plotting. Specify level1=1 to plot all GO categories containing genes exceeding the absValue.
+          level2=0.05, # FDR cutoff to print in regular (not italic) font.
+          level3=0.0001, # FDR cutoff to print in large bold font.
+          txtsize=1.5,    # decrease to fit more on one page, or increase (after rescaling the plot so the tree fits the text) for better "word cloud" effect
+          treeHeight=0.25, # height of the hierarchical clustering tree
+          colors=c("blue3", "royalblue3", "steelblue",  "gray10") # darker color is more signif
+)
+#saved as blueBP as 30x10 portrait
+```
+
+```{r}
+#plot yellow module
+pyellow="Presence_yellow.csv"
+gomwuStats(pyellow, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#99
+
+gomwuPlot(pyellow,goAnnotations,goDivision,
+          absValue=0.001,  # genes with the measure value exceeding this will be counted as "good genes". This setting is for signed log-pvalues. Specify absValue=0.001 if you are doing Fisher's exact test for standard GO enrichment or analyzing a WGCNA module (all non-zero genes = "good genes").
+          #	absValue=1, # un-remark this if you are using log2-fold changes
+          level1=0.1, # FDR threshold for plotting. Specify level1=1 to plot all GO categories containing genes exceeding the absValue.
+          level2=0.05, # FDR cutoff to print in regular (not italic) font.
+          level3=0.0001, # FDR cutoff to print in large bold font.
+          txtsize=1.5,    # decrease to fit more on one page, or increase (after rescaling the plot so the tree fits the text) for better "word cloud" effect
+          treeHeight=0.25, # height of the hierarchical clustering tree
+          colors=c("goldenrod4", "goldenrod2", "gold2",  "gray10")  # darker color is more signif
+)
+#saved as yellowBP as 28x10 landscape
+```
+
+```{r}
+#plot black module
+pblack="Presence_black.csv"
+gomwuStats(pblack, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#0
+```
+
+```{r}
+#plot pink module
+ppink="Presence_pink.csv"
+gomwuStats(ppink, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#1
+```
+
+```{r}
+#plot turquoise module
+pturquoise="Presence_turquoise.csv"
+gomwuStats(pturquoise, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#24
+
+gomwuPlot(pturquoise,goAnnotations,goDivision,
+          absValue=0.001,  # genes with the measure value exceeding this will be counted as "good genes". This setting is for signed log-pvalues. Specify absValue=0.001 if you are doing Fisher's exact test for standard GO enrichment or analyzing a WGCNA module (all non-zero genes = "good genes").
+          #	absValue=1, # un-remark this if you are using log2-fold changes
+          level1=0.1, # FDR threshold for plotting. Specify level1=1 to plot all GO categories containing genes exceeding the absValue.
+          level2=0.05, # FDR cutoff to print in regular (not italic) font.
+          level3=0.0001, # FDR cutoff to print in large bold font.
+          txtsize=1.5,    # decrease to fit more on one page, or increase (after rescaling the plot so the tree fits the text) for better "word cloud" effect
+          treeHeight=0.25, # height of the hierarchical clustering tree
+          colors=c("turquoise4", "turquoise2", "cadetblue3",  "gray10")  # darker color is more signif
+)
+#saved as turquoiseBP as 10x5 landscape
+```
+
+```{r}
+#plot red module
+pred="Presence_red.csv"
+gomwuStats(pred, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#36
+
+gomwuPlot(pred,goAnnotations,goDivision,
+          absValue=0.001,  # genes with the measure value exceeding this will be counted as "good genes". This setting is for signed log-pvalues. Specify absValue=0.001 if you are doing Fisher's exact test for standard GO enrichment or analyzing a WGCNA module (all non-zero genes = "good genes").
+          #	absValue=1, # un-remark this if you are using log2-fold changes
+          level1=0.1, # FDR threshold for plotting. Specify level1=1 to plot all GO categories containing genes exceeding the absValue.
+          level2=0.05, # FDR cutoff to print in regular (not italic) font.
+          level3=0.0001, # FDR cutoff to print in large bold font.
+          txtsize=1.5,    # decrease to fit more on one page, or increase (after rescaling the plot so the tree fits the text) for better "word cloud" effect
+          treeHeight=0.25, # height of the hierarchical clustering tree
+          colors=c("red4", "firebrick2", "lightcoral",  "gray10")  # darker color is more signif
+)
+#saved as redBP as 10x10 portrait
+```
+
+```{r}
+#plot green module
+pgreen="Presence_green.csv"
+gomwuStats(pgreen, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#16
+
+gomwuPlot(pgreen,goAnnotations,goDivision,
+          absValue=0.001,  # genes with the measure value exceeding this will be counted as "good genes". This setting is for signed log-pvalues. Specify absValue=0.001 if you are doing Fisher's exact test for standard GO enrichment or analyzing a WGCNA module (all non-zero genes = "good genes").
+          #	absValue=1, # un-remark this if you are using log2-fold changes
+          level1=0.1, # FDR threshold for plotting. Specify level1=1 to plot all GO categories containing genes exceeding the absValue.
+          level2=0.05, # FDR cutoff to print in regular (not italic) font.
+          level3=0.0001, # FDR cutoff to print in large bold font.
+          txtsize=1.5,    # decrease to fit more on one page, or increase (after rescaling the plot so the tree fits the text) for better "word cloud" effect
+          treeHeight=0.25, # height of the hierarchical clustering tree
+          colors=c("darkgreen", "forestgreen", "springgreen3",  "gray10")  # darker color is more signif
+)
+#saved as greenBP as 10x5 landscape
+```
+
+```{r}
+#plot purple module
+ppurple="Presence_purple.csv"
+gomwuStats(ppurple, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#0
+```
+
+```{r}
+#plot magenta module
+pmagenta="Presence_magenta.csv"
+gomwuStats(pmagenta, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.15,
+           smallest=10,
+           clusterCutHeight=0.25)
+
+#3
+
+gomwuPlot(pmagenta,goAnnotations,goDivision,
+          absValue=0.001,  # genes with the measure value exceeding this will be counted as "good genes". This setting is for signed log-pvalues. Specify absValue=0.001 if you are doing Fisher's exact test for standard GO enrichment or analyzing a WGCNA module (all non-zero genes = "good genes").
+          #	absValue=1, # un-remark this if you are using log2-fold changes
+          level1=0.1, # FDR threshold for plotting. Specify level1=1 to plot all GO categories containing genes exceeding the absValue.
+          level2=0.05, # FDR cutoff to print in regular (not italic) font.
+          level3=0.0001, # FDR cutoff to print in large bold font.
+          txtsize=1.5,    # decrease to fit more on one page, or increase (after rescaling the plot so the tree fits the text) for better "word cloud" effect
+          treeHeight=0.25, # height of the hierarchical clustering tree
+          colors=c("magenta3", "hotpink1", "pink2",  "gray10")  # darker color is more signif
+)
+#saved as magentaBP as 10x3 landscape
+```
+
+```{r}
+newnames = c("gene_ID", "accession", "description" )
+iso2gene = read.delim("./data_files/aiptasia_iso2gene.txt", sep="\t", header=TRUE)
+colnames(iso2gene) <- newnames
+
+head(iso2gene)
+gene = iso2gene %>%
+       mutate(gene_symbol = gsub(".* GN=", "", description)) %>%
+       mutate(gene_symbol = gsub(" .*", "", gene_symbol)) %>%
+  mutate(gene_symbol = toupper(gene_symbol)) %>%
+  mutate(gene_symbol = make.names(gene_symbol, unique = TRUE))
+head(gene)
+```
+
+The following code in this script is not included in the manuscript but is here for reference
+To continue code for the manuscript, go to Gnoto_wgcna.Rmd, which is where WGCNA are performed separately for apo and sym
+
+pull immune terms from the blue module
+Reformat GO BP blue output tables
+```{r}
+go_bp_blue <- read.csv("./data_files/MWU_BP_Presence_blue.csv", header=TRUE, sep=" ")
+head(go_bp_blue)
+write.table(go_bp_blue, "./data_files/MWU_BP_Presence_blue.txt", quote=F, sep="\t", row.names=FALSE)
+```
+
+Now filter your GO BP files for the GO terms of interest
+```{r}
+bp_blue = read.csv("./data_files/BP_Presence_blue.csv", sep="\t")
+head(bp_blue)
+colnames(bp_blue)[4]="gene_ID"
+
+#apo P0 to C
+head(res_apo_P0C)
+sig05_apo_P0C = as.data.frame(res_apo_P0C[which(res_apo_P0C$padj < 0.05), ])
+head(sig05_apo_P0C)
+nrow(sig05_apo_P0C) #814
+sig05_apo_P0C_name <- as.data.frame(sig05_apo_P0C$gene_ID)
+colnames(sig05_apo_P0C_name) <- paste("gene_ID")
+
+#apo P2 to C
+head(res_apo_P2C)
+sig05_apo_P2C = as.data.frame(res_apo_P2C[which(res_apo_P2C$padj < 0.05), ])
+head(sig05_apo_P2C)
+nrow(sig05_apo_P2C)
+#958
+sig05_apo_P2C_name <- as.data.frame(sig05_apo_P2C$gene_ID)
+colnames(sig05_apo_P2C_name) <- paste("gene_ID")
+
+#apo R to C
+head(res_apo_RC)
+sig05_apo_RC = as.data.frame(res_apo_RC[which(res_apo_RC$padj < 0.05), ])
+head(sig05_apo_RC)
+nrow(sig05_apo_RC)
+#342
+sig05_apo_RC_name <- as.data.frame(sig05_apo_RC$gene_ID)
+colnames(sig05_apo_RC_name) <- paste("gene_ID")
+
+#sym P0 to C
+head(res_sym_P0C)
+sig05_sym_P0C = as.data.frame(res_sym_P0C[which(res_sym_P0C$padj < 0.05), ])
+head(sig05_sym_P0C)
+nrow(sig05_sym_P0C) #1000
+sig05_sym_P0C_name <- as.data.frame(sig05_sym_P0C$gene_ID)
+colnames(sig05_sym_P0C_name) <- paste("gene_ID")
+
+#sym P2 to C
+head(res_sym_P2C)
+sig05_sym_P2C = as.data.frame(res_sym_P2C[which(res_sym_P2C$padj < 0.05), ])
+head(sig05_sym_P2C)
+nrow(sig05_sym_P2C)
+#983
+sig05_sym_P2C_name <- as.data.frame(sig05_sym_P2C$gene_ID)
+colnames(sig05_sym_P2C_name) <- paste("gene_ID")
+
+#sym R to C
+head(res_sym_RC)
+sig05_sym_RC = as.data.frame(res_sym_RC[which(res_sym_RC$padj < 0.05), ])
+head(sig05_sym_RC)
+nrow(sig05_sym_RC)
+#1347
+sig05_sym_RC_name <- as.data.frame(sig05_sym_RC$gene_ID)
+colnames(sig05_sym_RC_name) <- paste("gene_ID")
+
+full_deg05 <- rbind(sig05_apo_P0C_name, sig05_apo_P2C_name, sig05_apo_RC_name, sig05_sym_P0C_name, sig05_sym_P2C_name, sig05_sym_RC_name) %>%
+  distinct(.keep_all=FALSE)
+head(full_deg05)
+nrow(full_deg05)
+#3108
+
+head(rld)
+nrow(rld)
+rld_df <- as.data.frame(rld)
+
+rld_degs <- rld_df %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(full_deg05)
+head(rld_degs)
+nrow(rld_degs)
+#3108
+```
+
+general "immune": GO:0050778|GO:0002252|GO:0002218;GO:0002221;GO:0002758|GO:0002263;GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955;GO:0045087;GO:0140546|GO:0002376|GO:0002682|
+
+nfkb specific: GO:0043122
+
+random immune: GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321;GO:0046649|GO:0006909|GO:1903131;GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952;GO:0098542;GO:0051707|
+
+apoptosis: GO:0097194|
+
+cytokine: GO:0034097;GO:0071345|GO:0001817
+```{r}
+#all immune go terms
+immune_all_blue = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue)
+nrow(immune_all_blue)
+#354
+
+#general "immune" go terms
+immune_gen_blue = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955;GO:0045087|GO:0140546|GO:0002376|GO:0002682")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_gen_blue)
+nrow(immune_gen_blue)
+#125
+
+#nfkb go terms
+nfkb_blue = bp_blue %>%
+  filter(str_detect(term, "GO:0043122")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(nfkb_blue)
+nrow(nfkb_blue)
+#17
+
+#random immune go terms
+immune_rando_blue = bp_blue %>%
+  filter(str_detect(term, "GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_rando_blue)
+nrow(immune_rando_blue)
+#320
+
+#apoptosis go terms
+apop_blue = bp_blue %>%
+  filter(str_detect(term, "GO:0097194")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(apop_blue)
+nrow(apop_blue)
+#3
+
+#cytokine go terms
+cyt_blue = bp_blue %>%
+  filter(str_detect(term, "GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(cyt_blue)
+nrow(cyt_blue)
+#62
+```
+
+plot
+```{r}
+#immune all
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+immune_all_blue <- immune_all_blue[,c(5:9, 14:18, 24:29, 35:39, 1:4, 10:13, 19:23, 30:34)]
+
+rld_means_immall = apply(immune_all_blue, 1, mean)
+explc_rld_immall = immune_all_blue-rld_means_immall
+
+imm_all_hm <- pheatmap(as.matrix(explc_rld_immall),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm 40x8 portrait
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+immune_gen_blue <- immune_gen_blue[,c(5:9, 14:18, 24:29, 35:39, 1:4, 10:13, 19:23, 30:34)]
+
+rld_means_immgen = apply(immune_gen_blue, 1, mean)
+explc_rld_immgen = immune_gen_blue-rld_means_immgen
+
+imm_gen_hm <- pheatmap(as.matrix(explc_rld_immgen),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#immune_gen_hm 15x8
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+nfkb_blue <- nfkb_blue[,c(5:9, 14:18, 24:29, 35:39, 1:4, 10:13, 19:23, 30:34)]
+
+rld_means_nfkb = apply(nfkb_blue, 1, mean)
+explc_rld_nfkb = nfkb_blue-rld_means_nfkb
+
+nfkb_hm <- pheatmap(as.matrix(explc_rld_nfkb),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#nfkb_hm 8x5 landscape
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+immune_rando_blue <- immune_rando_blue[,c(5:9, 14:18, 24:29, 35:39, 1:4, 10:13, 19:23, 30:34)]
+
+rld_means_immrando = apply(immune_rando_blue, 1, mean)
+explc_rld_immrando = immune_rando_blue-rld_means_immrando
+
+immrando_hm <- pheatmap(as.matrix(explc_rld_immrando),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#immrando_hm 15x8
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+apop_blue <- apop_blue[,c(5:9, 14:18, 24:29, 35:39, 1:4, 10:13, 19:23, 30:34)]
+
+rld_means_apop = apply(apop_blue, 1, mean)
+explc_rld_apop = apop_blue-rld_means_apop
+
+apop_hm <- pheatmap(as.matrix(explc_rld_apop),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#apoptosis_hm 8x3 landscape
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+cyt_blue <- cyt_blue[,c(5:9, 14:18, 24:29, 35:39, 1:4, 10:13, 19:23, 30:34)]
+
+rld_means_cyt = apply(cyt_blue, 1, mean)
+explc_rld_cyt = cyt_blue-rld_means_cyt
+
+cyt_hm <- pheatmap(as.matrix(explc_rld_cyt),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#cytokine_hm 10x8 
+```
+
+split sym and apo
+```{r}
+#sym
+sym_deg05 <- rbind(sig05_sym_P0C_name, sig05_sym_P2C_name, sig05_sym_RC_name) %>%
+  distinct(.keep_all=FALSE)
+head(sym_deg05)
+nrow(sym_deg05)
+#2348
+
+rld_degs_sym <- rld_df %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(sym_deg05)
+head(rld_degs_sym)
+nrow(rld_degs_sym)
+#2348
+
+#apo
+apo_deg05 <- rbind(sig05_apo_P0C_name, sig05_apo_P2C_name, sig05_apo_RC_name) %>%
+  distinct(.keep_all=FALSE)
+head(apo_deg05)
+nrow(apo_deg05)
+#1591
+
+rld_degs_apo <- rld_df %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(apo_deg05)
+head(rld_degs_apo)
+nrow(rld_degs_apo)
+#1591
+
+sig05_apo_P0C_name_gene <- sig05_apo_P0C_name %>%
+  left_join(gene)
+sig05_apo_P2C_name_gene <- sig05_apo_P2C_name %>%
+  left_join(gene)
+sig05_apo_RC_name_gene <- sig05_apo_RC_name %>%
+  left_join(gene)
+
+sig05_sym_P0C_name_gene <- sig05_sym_P0C_name %>%
+  left_join(gene)
+sig05_sym_P2C_name_gene <- sig05_sym_P2C_name %>%
+  left_join(gene)
+sig05_sym_RC_name_gene <- sig05_sym_RC_name %>%
+  left_join(gene)
+```
+
+GO sorting for sym
+```{r}
+#all immune go terms
+immune_all_blue_s = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_sym) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue_s)
+nrow(immune_all_blue_s)
+#272
+
+#general "immune" go terms
+immune_gen_blue_s = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955;GO:0045087|GO:0140546|GO:0002376|GO:0002682")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_sym) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_gen_blue_s)
+nrow(immune_gen_blue_s)
+#101
+
+#nfkb go terms
+nfkb_blue_s = bp_blue %>%
+  filter(str_detect(term, "GO:0043122")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_sym) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(nfkb_blue_s)
+nrow(nfkb_blue_s)
+#15
+
+#random immune go terms
+immune_rando_blue_s = bp_blue %>%
+  filter(str_detect(term, "GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_sym) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_rando_blue_s)
+nrow(immune_rando_blue_s)
+#251
+
+#apoptosis go terms
+apop_blue_s = bp_blue %>%
+  filter(str_detect(term, "GO:0097194")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_sym) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(apop_blue_s)
+nrow(apop_blue_s)
+#3
+
+#cytokine go terms
+cyt_blue_s = bp_blue %>%
+  filter(str_detect(term, "GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_sym) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(cyt_blue_s)
+nrow(cyt_blue_s)
+#52
+```
+
+GO sorting for apo
+```{r}
+#all immune go terms
+immune_all_blue_a = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_apo) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue_a)
+nrow(immune_all_blue_a)
+#170
+
+#general "immune" go terms
+immune_gen_blue_a = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955;GO:0045087|GO:0140546|GO:0002376|GO:0002682")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_apo) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_gen_blue_a)
+nrow(immune_gen_blue_a)
+#49
+
+#nfkb go terms
+nfkb_blue_a = bp_blue %>%
+  filter(str_detect(term, "GO:0043122")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_apo) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(nfkb_blue_a)
+nrow(nfkb_blue_a)
+#5
+
+#random immune go terms
+immune_rando_blue_a = bp_blue %>%
+  filter(str_detect(term, "GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_apo) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_rando_blue_a)
+nrow(immune_rando_blue_a)
+#151
+
+#apoptosis go terms
+apop_blue_a = bp_blue %>%
+  filter(str_detect(term, "GO:0097194")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_apo) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(apop_blue_a)
+nrow(apop_blue_a)
+#2
+
+#cytokine go terms
+cyt_blue_a = bp_blue %>%
+  filter(str_detect(term, "GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_apo) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(cyt_blue_a)
+nrow(cyt_blue_a)
+#22
+```
+
+plot hm for sym
+```{r}
+#immune all
+
+#select only sym
+immune_all_blue_s <- immune_all_blue_s[,c(5:9, 14:18, 24:29, 35:39)]
+
+rld_means_immall_s = apply(immune_all_blue_s, 1, mean)
+explc_rld_immall_s = immune_all_blue_s-rld_means_immall_s
+
+imm_all_hm_s <- pheatmap(as.matrix(explc_rld_immall_s),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm_sym 32x8 portrait
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+immune_gen_blue_s <- immune_gen_blue_s[,c(5:9, 14:18, 24:29, 35:39)]
+
+rld_means_immgen_s = apply(immune_gen_blue_s, 1, mean)
+explc_rld_immgen_s = immune_gen_blue_s-rld_means_immgen_s
+
+imm_gen_hm_s <- pheatmap(as.matrix(explc_rld_immgen_s),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#immune_gen_hm_sym 15x8
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+nfkb_blue_s <- nfkb_blue_s[,c(5:9, 14:18, 24:29, 35:39)]
+
+rld_means_nfkb_s = apply(nfkb_blue_s, 1, mean)
+explc_rld_nfkb_s = nfkb_blue_s-rld_means_nfkb_s
+
+nfkb_hm_s <- pheatmap(as.matrix(explc_rld_nfkb_s),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#nfkb_hm_sym 8x5 landscape
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+immune_rando_blue_s <- immune_rando_blue_s[,c(5:9, 14:18, 24:29, 35:39)]
+
+rld_means_immrando_s = apply(immune_rando_blue_s, 1, mean)
+explc_rld_immrando_s = immune_rando_blue_s-rld_means_immrando_s
+
+immrando_hm_s <- pheatmap(as.matrix(explc_rld_immrando_s),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#immrando_hm_sym 30x8
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+apop_blue_s <- apop_blue_s[,c(5:9, 14:18, 24:29, 35:39)]
+
+rld_means_apop_s = apply(apop_blue_s, 1, mean)
+explc_rld_apop_s = apop_blue_s-rld_means_apop_s
+
+apop_hm_s <- pheatmap(as.matrix(explc_rld_apop_s),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+        # gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#apoptosis_hm_sym 8x3 landscape
+
+#reorder columns to be sym (C, P0, P2, R) then apo
+cyt_blue_s <- cyt_blue_s[,c(5:9, 14:18, 24:29, 35:39)]
+
+rld_means_cyt_s = apply(cyt_blue_s, 1, mean)
+explc_rld_cyt_s = cyt_blue_s-rld_means_cyt_s
+
+cyt_hm_s <- pheatmap(as.matrix(explc_rld_cyt_s),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#cytokine_hm_sym 10x8 
+```
+
+plot hm for apo
+```{r}
+#immune all
+
+#select only apo
+immune_all_blue_a <- immune_all_blue_a[,c(1:4, 10:13, 19:23, 30:34)]
+
+rld_means_immall_a = apply(immune_all_blue_a, 1, mean)
+explc_rld_immall_a = immune_all_blue_a-rld_means_immall_a
+
+imm_all_hm_a <- pheatmap(as.matrix(explc_rld_immall_a),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm_apo 21x8 portrait
+
+#imm gen
+immune_gen_blue_a <- immune_gen_blue_a[,c(1:4, 10:13, 19:23, 30:34)]
+
+rld_means_immgen_a = apply(immune_gen_blue_a, 1, mean)
+explc_rld_immgen_a = immune_gen_blue_a-rld_means_immgen_a
+
+imm_gen_hm_a <- pheatmap(as.matrix(explc_rld_immgen_a),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#immune_gen_hm_apo 10x8
+
+#nfkb
+nfkb_blue_a <- nfkb_blue_a[,c(1:4, 10:13, 19:23, 30:34)]
+
+rld_means_nfkb_a = apply(nfkb_blue_a, 1, mean)
+explc_rld_nfkb_a = nfkb_blue_a-rld_means_nfkb_a
+
+nfkb_hm_a <- pheatmap(as.matrix(explc_rld_nfkb_a),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#nfkb_hm_apo 8x3 landscape
+
+#imm rando
+immune_rando_blue_a <- immune_rando_blue_a[,c(1:4, 10:13, 19:23, 30:34)]
+
+rld_means_immrando_a = apply(immune_rando_blue_a, 1, mean)
+explc_rld_immrando_a = immune_rando_blue_a-rld_means_immrando_a
+
+immrando_hm_a <- pheatmap(as.matrix(explc_rld_immrando_a),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#immrando_hm_apo 20x8
+
+#qpoptosis
+apop_blue_a <- apop_blue_a[,c(1:4, 10:13, 19:23, 30:34)]
+
+rld_means_apop_a = apply(apop_blue_a, 1, mean)
+explc_rld_apop_a = apop_blue_a-rld_means_apop_a
+
+apop_hm_a <- pheatmap(as.matrix(explc_rld_apop_a),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+        # gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#apoptosis_hm_apo 8x3 landscape
+
+#cytokine
+cyt_blue_a <- cyt_blue_a[,c(1:4, 10:13, 19:23, 30:34)]
+
+rld_means_cyt_a = apply(cyt_blue_a, 1, mean)
+explc_rld_cyt_a = cyt_blue_a-rld_means_cyt_a
+
+cyt_hm_a <- pheatmap(as.matrix(explc_rld_cyt_a),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#cytokine_hm_apo 8x6 landscape 
+```
+
+investigating yellow module
+- MAPK and ERK
+```{r}
+bp_yellow = read.csv("./data_files/BP_Presence_yellow.csv", sep="\t")
+head(bp_yellow)
+colnames(bp_yellow)[4]="gene_ID"
+
+go_bp_yellow <- read.csv("data_files/MWU_BP_Presence_yellow.csv", header=TRUE, sep=" ")
+head(go_bp_yellow)
+write.table(go_bp_yellow, "data_files/MWU_BP_Presence_yellow.txt", quote=F, sep="\t", row.names=FALSE)
+```
+
+mapk: GO:0043410|GO:0043408
+erk: GO:0070374|GO:0070372
+
+sort for the mapk and erk in sym
+```{r}
+#mapk go terms
+mapk_yellow_s = bp_yellow %>%
+  filter(str_detect(term, " GO:0043410|GO:0043408")) %>% # select desired GO terms
+  left_join(rld_degs_sym) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(mapk_yellow_s)
+nrow(mapk_yellow_s)
+#48
+
+#erk go terms
+erk_yellow_s = bp_yellow %>%
+  filter(str_detect(term, "GO:0070374|GO:0070372")) %>% # select desired GO terms
+  left_join(rld_degs_sym) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(erk_yellow_s)
+nrow(erk_yellow_s)
+#18
+```
+
+sort for the mapk and erk in apo
+```{r}
+#mapk go terms
+mapk_yellow_a = bp_yellow %>%
+  filter(str_detect(term, " GO:0043410|GO:0043408")) %>% # select desired GO terms
+  left_join(rld_degs_apo) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(mapk_yellow_a)
+nrow(mapk_yellow_a)
+#25
+
+#erk go terms
+erk_yellow_a = bp_yellow %>%
+  filter(str_detect(term, "GO:0070374|GO:0070372")) %>% # select desired GO terms
+  left_join(rld_degs_apo) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(erk_yellow_a)
+nrow(erk_yellow_a)
+#14
+```
+
+hm for sym mapk and erk
+```{r}
+mapk_yellow_s <- mapk_yellow_s[,c(5:9, 14:18, 24:29, 35:39)]
+
+rld_means_mapk_s = apply(mapk_yellow_s, 1, mean)
+explc_rld_mapk_s = mapk_yellow_s-rld_means_mapk_s
+
+mapk_hm_s <- pheatmap(as.matrix(explc_rld_mapk_s),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#mapk_hm_sym 8x8 portrait
+
+erk_yellow_s <- erk_yellow_s[,c(5:9, 14:18, 24:29, 35:39)]
+
+rld_means_erk_s = apply(erk_yellow_s, 1, mean)
+explc_rld_erk_s = erk_yellow_s-rld_means_erk_s
+
+erk_hm_s <- pheatmap(as.matrix(explc_rld_erk_s),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#erk_hm_sym 8x5 landscape
+```
+
+hm for apo mapk and erk
+```{r}
+mapk_yellow_a <- mapk_yellow_a[,c(1:4, 10:13, 19:23, 30:34)]
+
+rld_means_mapk_a = apply(mapk_yellow_a, 1, mean)
+explc_rld_mapk_a = mapk_yellow_a-rld_means_mapk_a
+
+mapk_hm_a <- pheatmap(as.matrix(explc_rld_mapk_a),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#mapk_hm_apo 8x6 landscape
+
+erk_yellow_a <- erk_yellow_a[,c(1:4, 10:13, 19:23, 30:34)]
+
+rld_means_erk_a = apply(erk_yellow_a, 1, mean)
+explc_rld_erk_a = erk_yellow_a-rld_means_erk_a
+
+erk_hm_a <- pheatmap(as.matrix(explc_rld_erk_a),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 0, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         #gaps_col = c(21),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#erk_hm_apo 8x3 landscape
+```
+
+trying to better image all the immune genes identified through the Blue BP go terms
+--> get the genes that are sig for each treatment to control, can have up and down genes to show progression across time
+```{r}
+MEblue_name <- MEblue
+colnames(MEblue_name) <- paste(c("gene_ID"))
+```
+
+sym
+```{r}
+rld_df_sym <- rld_df[,c(5:9, 14:18, 24:29, 35:39)]
+
+head(sig05_sym_P0C)
+sig05_sym_P0C_up <- subset(sig05_sym_P0C, log2FoldChange>0)
+sig05_sym_P0C_down <- subset(sig05_sym_P0C, log2FoldChange<0)
+head(sig05_sym_P0C_name)
+nrow(sig05_sym_P0C_name) #1000
+
+sig05_sym_P0C_name_blue <- sig05_sym_P0C_name %>%
+  inner_join(MEblue_name)
+nrow(sig05_sym_P0C_name_blue) #203
+
+rld_degs_P0Cs <- rld_df_sym %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(sig05_sym_P0C_name_blue)
+head(rld_degs_P0Cs)
+nrow(rld_degs_P0Cs)
+#203
+
+immune_all_blue_P0Cs = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_P0Cs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue_P0Cs)
+nrow(immune_all_blue_P0Cs)
+#36
+
+rld_means_immall_P0Cs = apply(immune_all_blue_P0Cs, 1, mean)
+explc_rld_immall_P0Cs = immune_all_blue_P0Cs-rld_means_immall_P0Cs
+
+imm_all_hm_P0Cs <- pheatmap(as.matrix(explc_rld_immall_P0Cs),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(5,10),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm_P0Csym_new 6x6 portrait
+
+
+head(sig05_sym_P2C)
+head(sig05_sym_P2C_name)
+nrow(sig05_sym_P2C_name) #983
+
+sig05_sym_P2C_name_blue <- sig05_sym_P2C_name %>%
+  inner_join(MEblue_name)
+nrow(sig05_sym_P2C_name_blue) #271
+
+rld_degs_P2Cs <- rld_df_sym %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(sig05_sym_P2C_name_blue)
+head(rld_degs_P2Cs)
+nrow(rld_degs_P2Cs)
+#271
+
+immune_all_blue_P2Cs = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_P2Cs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue_P2Cs)
+nrow(immune_all_blue_P2Cs)
+#48
+
+rld_means_immall_P2Cs = apply(immune_all_blue_P2Cs, 1, mean)
+explc_rld_immall_P2Cs = immune_all_blue_P2Cs-rld_means_immall_P2Cs
+
+imm_all_hm_P2Cs <- pheatmap(as.matrix(explc_rld_immall_P2Cs),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(10, 16),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm_P2Csym_new 8x6 portrait
+
+
+head(sig05_sym_RC)
+head(sig05_sym_RC_name)
+nrow(sig05_sym_RC_name) #1347
+
+sig05_sym_RC_name_blue <- sig05_sym_RC_name %>%
+  inner_join(MEblue_name)
+nrow(sig05_sym_RC_name_blue) #191
+
+rld_degs_RCs <- rld_df_sym %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(sig05_sym_RC_name_blue)
+head(rld_degs_RCs)
+nrow(rld_degs_RCs)
+#191
+
+immune_all_blue_RCs = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_RCs) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue_RCs)
+nrow(immune_all_blue_RCs)
+#32
+
+rld_means_immall_RCs = apply(immune_all_blue_RCs, 1, mean)
+explc_rld_immall_RCs = immune_all_blue_RCs-rld_means_immall_RCs
+
+imm_all_hm_RCs <- pheatmap(as.matrix(explc_rld_immall_RCs),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(16),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm_RCsym_new 6x6 portrait
+
+```
+
+apo
+```{r}
+rld_df_apo <- rld_df[,c(1:4, 10:13, 19:23, 30:34)]
+
+head(sig05_apo_P0C)
+head(sig05_apo_P0C_name)
+nrow(sig05_apo_P0C_name) #814
+
+sig05_apo_P0C_name_blue <- sig05_apo_P0C_name %>%
+  inner_join(MEblue_name)
+nrow(sig05_apo_P0C_name_blue) #285
+
+rld_degs_P0Ca <- rld_df_apo %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(sig05_apo_P0C_name_blue)
+head(rld_degs_P0Ca)
+nrow(rld_degs_P0Ca)
+#285
+
+immune_all_blue_P0Ca = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_P0Ca) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue_P0Ca)
+nrow(immune_all_blue_P0Ca)
+#45
+
+rld_means_immall_P0Ca = apply(immune_all_blue_P0Ca, 1, mean)
+explc_rld_immall_P0Ca = immune_all_blue_P0Ca-rld_means_immall_P0Ca
+
+imm_all_hm_P0Ca <- pheatmap(as.matrix(explc_rld_immall_P0Ca),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(4,8),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm_P0Capo_new 8x6 portrait
+
+
+head(sig05_apo_P2C)
+head(sig05_apo_P2C_name)
+nrow(sig05_apo_P2C_name) #958
+
+sig05_apo_P2C_name_blue <- sig05_apo_P2C_name %>%
+  inner_join(MEblue_name)
+nrow(sig05_apo_P2C_name_blue) #343
+
+rld_degs_P2Ca <- rld_df_apo %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(sig05_apo_P2C_name_blue)
+head(rld_degs_P2Ca)
+nrow(rld_degs_P2Ca)
+#343
+
+immune_all_blue_P2Ca = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_P2Ca) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue_P2Ca)
+nrow(immune_all_blue_P2Ca)
+#43
+
+rld_means_immall_P2Ca = apply(immune_all_blue_P2Ca, 1, mean)
+explc_rld_immall_P2Ca = immune_all_blue_P2Ca-rld_means_immall_P2Ca
+
+imm_all_hm_P2Ca <- pheatmap(as.matrix(explc_rld_immall_P2Ca),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(8, 13),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm_P2Capo_new 6x6 portrait
+
+
+head(sig05_apo_RC)
+head(sig05_apo_RC_name)
+nrow(sig05_apo_RC_name) #342
+
+sig05_apo_RC_name_blue <- sig05_apo_RC_name %>%
+  inner_join(MEblue_name)
+nrow(sig05_apo_RC_name_blue) #105
+
+rld_degs_RCa <- rld_df_apo %>%
+  rownames_to_column(var="gene_ID") %>%
+  right_join(sig05_apo_RC_name_blue)
+head(rld_degs_RCa)
+nrow(rld_degs_RCa)
+#105
+
+immune_all_blue_RCa = bp_blue %>%
+  filter(str_detect(term, "GO:0050778|GO:0002252|GO:0002218|GO:0002221|GO:0002758|GO:0002263|GO:0002366|GO:0002684|GO:0050776|GO:0002697|GO:0006955|GO:0045087|GO:0140546|GO:0002376|GO:0002682|GO:0043122|GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321|GO:0046649|GO:0006909|GO:1903131|GO:0002521|GO:0080134|GO:0009615|GO:0006950|GO:0031347|GO:0006952|GO:0098542|GO:0051707|GO:0097194|GO:0034097|GO:0071345|GO:0001817")) %>% # select desired GO terms (nfkb)
+  left_join(rld_degs_RCa) %>% 
+  drop_na() %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  left_join(gene) %>%
+  column_to_rownames(var = "gene_symbol") %>%
+  dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
+  dplyr::select(sort(tidyselect::peek_vars()))
+head(immune_all_blue_RCa)
+nrow(immune_all_blue_RCa)
+#11
+
+rld_means_immall_RCa = apply(immune_all_blue_RCa, 1, mean)
+explc_rld_immall_RCa = immune_all_blue_RCa-rld_means_immall_RCa
+
+imm_all_hm_RCa <- pheatmap(as.matrix(explc_rld_immall_RCa),
+         color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
+         cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
+         cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
+         gaps_col = c(13),
+         breaks=c(seq(from=-1,to=1,by=0.1)),
+         scale="none",
+         legend=T)
+#saved as immune_all_hm_RCapo_new 6x3 landscape
+
+```
+
+
+
+
+```{r}
+head(sig05_sym_P0C_up)
+sigP0Cs_up_fisher <- sig05_sym_P0C_up %>%
+  mutate(Fishers = 1) %>%
+  dplyr::select(gene_ID, Fishers)%>%
+  full_join(gene) %>%
+  mutate(Fishers = if_else(is.na(Fishers), 0, 1)) %>%
+  select(gene_ID, Fishers)
+
+head(sig05_sym_P0C_down)
+sigP0Cs_down_fisher <- sig05_sym_P0C_down %>%
+  mutate(Fishers = 1) %>%
+  dplyr::select(gene_ID, Fishers) %>%
+  full_join(gene) %>%
+  mutate(Fishers = if_else(is.na(Fishers), 0, 1)) %>%
+  select(gene_ID, Fishers)
+
+write.csv(sigP0Cs_up_fisher, file="./data_files/sigP0Cs_up_fisher.csv", quote=F, row.names=FALSE)
+
+write.csv(sigP0Cs_down_fisher, file="./data_files/sigP0Cs_down_fisher.csv", quote=F, row.names=FALSE)
+```
+
+```{r}
+# BP
+input="sigP0Cs_up_fisher.csv"
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo"
+goDivision="BP"
+source("gomwu.functions.R")
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.1,
+           smallest=5,
+           clusterCutHeight=0.25)
+#17
+resultsBP=gomwuPlot(input,goAnnotations,goDivision,
+                    absValue=1,
+                    level1=0.1,
+                    level2=0.05,
+                    level3=0.01,
+                    txtsize=1.5,
+                    treeHeight=0.5,
+)
+#saved as sigP0Cs_up_fisher as portrait with 8x5 landscape
+
+# BP
+input="sigP0Cs_down_fisher.csv"
+goAnnotations="aiptasia_iso2go.tab"
+goDatabase="go.obo"
+goDivision="BP"
+source("gomwu.functions.R")
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath="perl",
+           largest=0.1,
+           smallest=5,
+           clusterCutHeight=0.25)
+#
+resultsBP=gomwuPlot(input,goAnnotations,goDivision,
+                    absValue=1,
+                    level1=0.1,
+                    level2=0.05,
+                    level3=0.01,
+                    txtsize=1.5,
+                    treeHeight=0.5,
+)
+```
+
+
+
+
+
