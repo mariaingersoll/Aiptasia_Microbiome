@@ -1,0 +1,260 @@
+GO_Group	SRC	ARC	SP2C	AP2C	AP0C	SP0C
+actin filament capping	2476	-1922	NA	NA	-1905	NA
+actin filament-based process	922	NA	NA	NA	-768	982
+amine metabolic process	1214	NA	NA	NA	1165	NA
+anatomical structure morphogenesis	386	-332	NA	-524	-298	418
+cardiac muscle cell action potential	2887	NA	NA	NA	-2778	NA
+cell surface receptor signaling pathway	338	NA	-277	-566	-371	NA
+cGMP metabolic process	2158	NA	NA	NA	-1965	NA
+chromosome organization	-474	-494	NA	NA	-343	NA
+neuropeptide signaling pathway	990	NA	NA	NA	-601	NA
+nucleoside monophosphate biosynthetic process	-1390	NA	NA	1190	1494	NA
+regulation of actin filament depolymerization	2434	NA	NA	NA	-1559	NA
+regulation of cell proliferation	424	NA	NA	-502	-375	NA
+regulation of localization	511	NA	NA	-408	-373	NA
+regulation of metal ion transport	1161	NA	NA	NA	-938	NA
+regulation of multicellular organismal process	343	NA	NA	-422	-356	NA
+regulation of protein complex disassembly	1460	NA	NA	NA	-1289	NA
+regulation of protein depolymerization	1780	NA	NA	NA	-1298	NA
+regulation of transport	470	NA	NA	-503	-332	NA
+response to mechanical stimulus	1224	NA	NA	-708	-852	NA
+tRNA aminoacylation for protein translation	-3855	-1735	-3262	-2255	-2259	-2737
+establishment of localization in cell	-405	-342	-338	-518	NA	NA
+oxidation-reduction process	479	361	1011	844	1041	677
+protein autoubiquitination	1414	NA	-1220	-1617	NA	NA
+protein folding	-1488	1124	NA	1082	NA	NA
+regulation of neural precursor cell proliferation	1329	NA	NA	-1229	NA	NA
+sodium ion transport	1242	855	NA	1082	NA	NA
+translation	-872	921	-1389	1022	1135	-1167
+translational initiation	-1852	967	NA	1146	NA	NA
+tRNA metabolic process	-1481	-984	NA	-828	NA	NA
+proteolysis	-564	757	-494	NA	NA	-658
+regulation of stem cell differentiation	1499	1199	NA	NA	NA	NA
+cation transport	783	NA	NA	NA	NA	-489
+cell communication	672	NA	NA	NA	NA	-529
+cellular response to DNA damage stimulus	-521	NA	NA	NA	NA	445
+DNA integration	-740	NA	-609	NA	NA	-1105
+DNA metabolic process	-767	NA	NA	NA	NA	-458
+DNA replication	-979	NA	NA	NA	NA	-1102
+establishment of protein localization	-650	NA	-321	NA	NA	354
+G-protein coupled receptor signaling pathway	626	NA	NA	NA	NA	-652
+intracellular protein transport	-763	NA	NA	NA	NA	576
+ion transmembrane transport	872	NA	NA	NA	NA	-646
+metal ion transport	967	NA	NA	NA	NA	-504
+mRNA metabolic process	-609	NA	NA	NA	NA	885
+multicellular organismal development	514	NA	NA	NA	NA	571
+nucleic acid phosphodiester bond hydrolysis	-692	NA	-562	NA	NA	-688
+potassium ion transport	1493	NA	NA	NA	NA	-1114
+protein hydroxylation	2250	NA	1931	NA	NA	2084
+regulation of ion transport	1151	NA	NA	NA	NA	-654
+RNA processing	-528	NA	NA	NA	NA	778
+RNA-dependent DNA replication	-875	NA	-827	NA	NA	-1471
+single organism signaling	889	NA	NA	NA	NA	-658
+system process	618	NA	NA	NA	NA	-414
+anion transport	987	NA	738	NA	NA	NA
+chloride transport	2480	NA	1492	NA	NA	NA
+inorganic anion transport	2043	NA	1782	NA	NA	NA
+organic cation transport	2504	NA	2277	NA	NA	NA
+peptidyl-proline hydroxylation	2840	NA	2625	NA	NA	NA
+trypsinogen activation	3736	NA	3264	NA	NA	2827
+cardiac septum development	NA	-1685	NA	-1775	-2066	NA
+cell cycle	NA	-672	382	NA	-687	NA
+cell cycle process	NA	-626	NA	NA	-652	NA
+cell division	NA	-718	NA	NA	-802	NA
+cell part morphogenesis	NA	-937	NA	-1009	-823	NA
+cell projection organization	NA	-891	NA	-870	-817	511
+cellular component morphogenesis	NA	-741	NA	-734	-686	NA
+cellular component movement	NA	-590	NA	-654	-862	NA
+chromatin organization	NA	-531	NA	NA	-460	479
+cilium morphogenesis	NA	-1597	NA	-1364	-1213	NA
+cilium movement	NA	-2086	NA	-2037	-1363	NA
+convergent extension	NA	-1790	NA	-1624	-1379	NA
+cytokinesis	NA	-1051	NA	NA	-973	1071
+cytoskeleton organization	NA	-732	NA	-623	-921	893
+digestion	NA	1933	NA	NA	-1287	-1804
+establishment of mitotic spindle localization	NA	-1760	NA	NA	-2441	NA
+establishment of spindle localization	NA	-1864	NA	-1816	-2166	NA
+establishment or maintenance of cell polarity	NA	-895	NA	-1338	-1545	NA
+inner ear receptor stereocilium organization	NA	-1549	NA	-1665	-1766	NA
+intracellular signal transduction	NA	-401	NA	-474	-441	398
+maintenance of organ identity	NA	-1765	-2036	-1938	-1760	NA
+microtubule cytoskeleton organization	NA	-873	NA	NA	-841	852
+microtubule-based movement	NA	-1267	NA	-1214	-1202	NA
+microtubule-based process	NA	-952	NA	-627	-1023	491
+one-carbon metabolic process	NA	1747	NA	NA	2266	NA
+organelle assembly	NA	-615	NA	NA	-543	938
+organelle fission	NA	-666	586	NA	-663	NA
+organonitrogen compound biosynthetic process	NA	465	513	708	785	NA
+phosphorylation	NA	-440	NA	-481	-358	NA
+photoreceptor cell maintenance	NA	-1330	-1326	-1541	-1242	NA
+protein localization to paranode region of axon	NA	-3166	NA	NA	-2905	NA
+protein modification by small protein conjugation or removal	NA	-625	-633	-811	-355	NA
+pteridine-containing compound metabolic process	NA	1563	NA	NA	2155	NA
+regulation of canonical Wnt signaling pathway	NA	-1049	NA	-916	-949	NA
+regulation of catabolic process	NA	-408	NA	-528	-358	483
+regulation of cell communication	NA	-324	-289	-543	-412	NA
+regulation of cell cycle	NA	-569	NA	-446	-444	425
+regulation of cellular component organization	NA	-278	NA	-422	-469	NA
+regulation of developmental process	NA	-286	NA	-553	-553	NA
+regulation of mitotic cell cycle	NA	-807	NA	-680	-703	NA
+regulation of molecular function	NA	-307	NA	-368	-311	NA
+regulation of nucleoside metabolic process	NA	-453	NA	-701	-519	565
+regulation of nucleotide metabolic process	NA	-554	NA	-845	-671	NA
+regulation of phosphorus metabolic process	NA	-336	NA	-572	-477	NA
+regulation of planar cell polarity pathway involved in neural tube closure	NA	-2371	NA	-2231	-2068	NA
+regulation of Ras GTPase activity	NA	-657	NA	-789	-765	NA
+single-organism organelle organization	NA	-726	NA	-407	-620	561
+specification of symmetry	NA	-1252	NA	-1330	-919	NA
+translational elongation	NA	1624	-1889	NA	2333	NA
+Wnt signaling pathway	NA	-593	NA	-633	-714	NA
+aminoglycan metabolic process	NA	1178	NA	1010	NA	NA
+axonemal dynein complex assembly	NA	-2093	NA	-2092	NA	NA
+cell killing	NA	1948	1599	1965	NA	NA
+cilium organization	NA	-1109	NA	-1091	NA	1124
+covalent chromatin modification	NA	-622	NA	-624	NA	804
+embryonic heart tube morphogenesis	NA	-1277	NA	-1655	NA	NA
+endosomal transport	NA	-788	-907	-1063	NA	NA
+epithelial cilium movement	NA	-1950	NA	-1493	NA	NA
+kidney morphogenesis	NA	-1654	NA	-1927	NA	NA
+lung cell differentiation	NA	-2491	NA	-2638	NA	NA
+lung development	NA	-1091	-1217	-1319	NA	NA
+modification of morphology or physiology of other organism	NA	1374	NA	1229	NA	-1267
+negative regulation of cell proliferation	NA	-589	NA	-860	NA	NA
+negative regulation of coagulation	NA	2829	NA	1657	NA	-2002
+negative regulation of metabolic process	NA	-327	NA	-467	NA	718
+negative regulation of response to stimulus	NA	-364	NA	-558	NA	NA
+regulation of epithelial to mesenchymal transition	NA	1816	NA	1495	NA	NA
+regulation of intracellular protein transport	NA	-881	NA	-838	NA	1109
+regulation of intracellular transport	NA	-759	NA	-832	NA	1206
+regulation of nucleocytoplasmic transport	NA	-914	NA	-933	NA	1332
+regulation of osteoblast proliferation	NA	-2159	-2595	-1893	NA	NA
+RNA biosynthetic process	NA	-326	NA	-257	NA	537
+cell projection assembly	NA	-1031	NA	NA	NA	1455
+cell redox homeostasis	NA	1272	NA	NA	NA	-2134
+extracellular matrix disassembly	NA	1314	NA	NA	NA	-1447
+organic cyclic compound catabolic process	NA	-356	NA	NA	NA	396
+regulation of chromosome organization	NA	-980	NA	NA	NA	1176
+regulation of organelle organization	NA	-513	NA	NA	NA	672
+alpha-amino acid metabolic process	NA	NA	656	788	1093	NA
+cellular component assembly	NA	NA	318	NA	-456	NA
+cellular lipid metabolic process	NA	NA	585	506	394	NA
+cellular modified amino acid metabolic process	NA	NA	819	943	1250	NA
+cofactor metabolic process	NA	NA	827	877	1219	1012
+establishment of planar polarity of embryonic epithelium	NA	NA	-2630	NA	-2342	-2500
+fatty acid metabolic process	NA	NA	1196	854	722	NA
+immune system process	NA	NA	-799	-647	-514	NA
+isoprenoid metabolic process	NA	NA	1277	NA	1297	NA
+lipid biosynthetic process	NA	NA	555	661	497	NA
+lipid metabolic process	NA	NA	553	375	332	NA
+monocarboxylic acid metabolic process	NA	NA	1028	697	624	NA
+monosaccharide metabolic process	NA	NA	1334	825	985	916
+organic acid metabolic process	NA	NA	647	669	701	NA
+organonitrogen compound metabolic process	NA	NA	350	254	268	NA
+peptidyl-tyrosine dephosphorylation	NA	NA	-1362	-1222	-1111	NA
+positive regulation of metabolic process	NA	NA	-301	NA	-245	NA
+positive regulation of response to stimulus	NA	NA	-465	-568	-354	NA
+regulation of cyclic nucleotide metabolic process	NA	NA	-906	-1236	-1080	-1250
+regulation of immune system process	NA	NA	-518	-726	-437	NA
+response to biotic stimulus	NA	NA	-751	-663	-492	-604
+response to other organism	NA	NA	-962	-834	-566	-660
+single-organism biosynthetic process	NA	NA	513	683	666	368
+small molecule biosynthetic process	NA	NA	579	847	832	NA
+small molecule catabolic process	NA	NA	853	639	894	800
+steroid biosynthetic process	NA	NA	1246	NA	881	1568
+sulfur amino acid metabolic process	NA	NA	1246	NA	1312	NA
+sulfur compound metabolic process	NA	NA	725	720	778	NA
+vesicle-mediated transport	NA	NA	-351	-344	-343	NA
+chromosome segregation	NA	NA	1146	1503	NA	NA
+death	NA	NA	-426	-402	NA	NA
+defense response	NA	NA	-785	-539	NA	NA
+defense response to other organism	NA	NA	-1097	-1059	NA	NA
+fatty acid beta-oxidation	NA	NA	1939	1979	NA	NA
+fatty acid catabolic process	NA	NA	1844	1322	NA	NA
+immune effector process	NA	NA	-885	-1015	NA	NA
+immune response	NA	NA	-993	-640	NA	NA
+leukocyte activation	NA	NA	-994	-1092	NA	NA
+leukocyte differentiation	NA	NA	-1255	-1060	NA	NA
+leukotriene metabolic process	NA	NA	2814	2420	NA	NA
+long-chain fatty acid metabolic process	NA	NA	1730	1321	NA	NA
+lymphocyte differentiation	NA	NA	-1449	-1074	NA	NA
+meiotic nuclear division	NA	NA	1615	1008	NA	NA
+mitotic cell cycle	NA	NA	1219	835	NA	NA
+monocarboxylic acid catabolic process	NA	NA	1876	1351	NA	NA
+NADP metabolic process	NA	NA	2266	2173	NA	NA
+negative regulation of inclusion body assembly	NA	NA	-2945	-2642	NA	NA
+pathogenesis	NA	NA	2166	2059	NA	NA
+pentose-phosphate shunt	NA	NA	2751	2629	NA	NA
+peptide catabolic process	NA	NA	2137	2087	NA	NA
+positive regulation of defense response	NA	NA	-1355	-1088	NA	NA
+positive regulation of immune response	NA	NA	-1491	-1084	NA	NA
+positive regulation of immune system process	NA	NA	-913	-702	NA	NA
+protein dephosphorylation	NA	NA	-907	-1130	NA	NA
+protein-DNA complex assembly	NA	NA	1445	1226	NA	NA
+regulation of bone remodeling	NA	NA	-2426	-2502	NA	NA
+regulation of immune effector process	NA	NA	-1403	-1147	NA	NA
+regulation of immune response	NA	NA	-973	-855	NA	NA
+regulation of innate immune response	NA	NA	-1260	-921	NA	NA
+regulation of interleukin-2 production	NA	NA	-2429	-2331	NA	NA
+regulation of protein metabolic process	NA	NA	-413	-323	NA	NA
+regulation of response to stress	NA	NA	-474	-459	NA	NA
+response to virus	NA	NA	-982	-986	NA	NA
+unsaturated fatty acid metabolic process	NA	NA	1708	1466	NA	NA
+ossification	NA	NA	-1284	NA	NA	-1357
+oxidoreduction coenzyme metabolic process	NA	NA	2029	NA	NA	1605
+peptidyl-proline modification	NA	NA	1867	NA	NA	1388
+positive regulation of blood coagulation	NA	NA	-2834	NA	NA	-2293
+regulation of cell division	NA	NA	1170	NA	NA	1112
+steroid metabolic process	NA	NA	851	NA	NA	814
+alpha-amino acid biosynthetic process	NA	NA	NA	1046	1223	NA
+calcium ion transmembrane transport	NA	NA	NA	-834	-725	-780
+carbohydrate metabolic process	NA	NA	NA	495	368	NA
+cell fate commitment involved in formation of primary germ layer	NA	NA	NA	-2768	-2469	NA
+cell motility	NA	NA	NA	-521	-752	NA
+cellular aldehyde metabolic process	NA	NA	NA	2285	1457	NA
+cellular amino acid biosynthetic process	NA	NA	NA	990	1119	NA
+cellular amino acid metabolic process	NA	NA	NA	521	709	NA
+cellular component assembly involved in morphogenesis	NA	NA	NA	-806	-675	1157
+cellular component biogenesis	NA	NA	NA	802	1061	NA
+cellular hormone metabolic process	NA	NA	NA	1137	1614	NA
+cellular modified amino acid biosynthetic process	NA	NA	NA	1317	1122	NA
+cofactor biosynthetic process	NA	NA	NA	929	1205	NA
+electron transport chain	NA	NA	NA	1786	1409	NA
+glutathione metabolic process	NA	NA	NA	1468	1325	NA
+glycosyl compound biosynthetic process	NA	NA	NA	970	1300	NA
+heme metabolic process	NA	NA	NA	1896	1966	NA
+histone H3-K4 trimethylation	NA	NA	NA	-3347	-2584	NA
+hydrogen transport	NA	NA	NA	1033	1229	NA
+locomotion	NA	NA	NA	-546	-682	NA
+mitotic spindle elongation	NA	NA	NA	3234	2602	NA
+myeloid leukocyte activation	NA	NA	NA	-1730	-1674	NA
+negative regulation of developmental process	NA	NA	NA	-643	-874	NA
+organ development	NA	NA	NA	-395	-343	NA
+organelle localization	NA	NA	NA	-1368	-1364	NA
+peptide metabolic process	NA	NA	NA	1120	1140	NA
+peptidyl-amino acid modification	NA	NA	NA	-488	-354	489
+peptidyl-tyrosine phosphorylation	NA	NA	NA	-1012	-716	NA
+positive regulation of molecular function	NA	NA	NA	-387	-307	NA
+positive regulation of transport	NA	NA	NA	-553	-583	NA
+primary alcohol metabolic process	NA	NA	NA	1695	2822	1773
+protein modification by small protein removal	NA	NA	NA	-1035	-1004	NA
+regulation of anatomical structure morphogenesis	NA	NA	NA	-529	-672	NA
+regulation of cell differentiation	NA	NA	NA	-607	-504	NA
+regulation of cellular localization	NA	NA	NA	-606	-424	NA
+regulation of intracellular signal transduction	NA	NA	NA	-541	-413	NA
+regulation of myeloid cell differentiation	NA	NA	NA	-1392	-1139	NA
+regulation of organ morphogenesis	NA	NA	NA	-940	-888	NA
+regulation of Rho protein signal transduction	NA	NA	NA	-1205	-1095	NA
+regulation of small GTPase mediated signal transduction	NA	NA	NA	-978	-895	NA
+response to external stimulus	NA	NA	NA	-471	-342	NA
+ribonucleoprotein complex biogenesis	NA	NA	NA	909	1054	NA
+rRNA metabolic process	NA	NA	NA	895	909	NA
+tissue morphogenesis	NA	NA	NA	-887	-559	NA
+aminoglycan catabolic process	NA	NA	NA	1460	NA	-1449
+negative regulation of biosynthetic process	NA	NA	NA	-347	NA	707
+negative regulation of protein metabolic process	NA	NA	NA	-728	NA	624
+peptidyl-lysine modification	NA	NA	NA	-885	NA	1032
+regulation of chromatin organization	NA	NA	NA	-1367	NA	1670
+extracellular structure organization	NA	NA	NA	NA	-629	-1049
+regulation of vasodilation	NA	NA	NA	NA	-1632	-2042
+retinol metabolic process	NA	NA	NA	NA	2882	2056
+vitamin metabolic process	NA	NA	NA	NA	1421	1262
