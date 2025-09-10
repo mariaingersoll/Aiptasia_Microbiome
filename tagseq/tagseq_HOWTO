@@ -1,0 +1,104 @@
+#concatenate host and symbiont (ssA01) transcriptomes
+cat aiptasia_genome.mRNA.fa S_linucheae_CCMP2456.CDS.fna > aiptasia_ssA01_cat_mRNA.fasta
+
+#-----------------------
+#unzip fastas and check all our files
+gunzip -r .
+
+grep '>' aiptasia_ssA01_cat_mRNA.fasta | wc -l ##counts the number of contigs in your fasta file
+#61322
+
+head aiptasia_seq2iso.tab #this is a file that assigns a unique 'isogroup' for sequences depending on how it was assembled, multiple sequences can be inferred to be the same gene; we are using just the Aiptasia one here to filter out the symbiont genes
+
+head aiptasia_iso2gene.txt #this is the gene annotation file
+wc -l aiptasia_iso2gene.txt
+#29270
+
+head aiptasia_iso2go.txt #this is the Gene Ontology (GO) annotation file
+
+#------------------------------PUT ALL YOUR FASTQS IN THE MAIN DIRECTORY
+find . -iname *.fastq -exec sh -c 'cp $1 $2' sh {} "." \; 2>/dev/null
+
+
+#------------------------------TRIMMING FILES
+# (Assuming we have many files with extension fastq, and we have fastx_toolkit installed and working)
+# adaptor trimming, deduplicating, and quality filtering:
+
+module load fastx-toolkit
+
+# creating and launching the cleaning process for all files at the same time:
+tagseq_trim_launch.pl '\.fastq$' > clean
+##look at what is being done in clean
+nano clean
+tagseq_clipper.pl
+#you'll see that this is where we are removing PCR duplicates that were generated during library preparation. 
+
+# now execute all commands written to file 'clean', preferably in array format
+scc6_qsub_launcher.py -N trim -P davies-hb -jobsfile clean
+#this should create a trim.array.qsub and a trim_array_commands.txt files
+
+qsub trim_array.qsub
+
+#let's see what is happening on the cluster
+qstat -u mingers (change to your username)
+
+##when the job is done, have a look in the trim.e* file
+cat trim.(tab complete)
+##this has all of the info for trimming. You'll see many sequences are PCR duplicates because this is TagSeq data and remember that we incorporated the degenerate bases into the cDNA synthesis
+
+#---------------------------------------Making the mapping database for your reference transcriptome
+# download and format reference transcriptome:
+#I download my reference database into the same folder, lots of people prefer having a database folder where they keep all of their databases. Up to you! 
+
+module load bowtie2
+# creating bowtie2 index for your transcriptome:
+bowtie2-build aiptasia_ssA01_cat_mRNA.fasta aiptasia_ssA01_cat_mRNA.fasta 
+ls -l
+
+#---------------------------------------Mapping reads to reference transcriptome
+
+tagseq_bowtie2map.pl "trim$" aiptasia_ssA01_cat_mRNA.fasta > maps
+nano maps
+
+scc6_qsub_launcher.py -N maps -P davies-hb -jobsfile maps
+#this should create a maps.array.qsub and a maps_array_commands.txt files
+
+qsub maps_array.qsub
+
+###now you have individual sam files for each trimmed files
+
+# alignment rates:
+nano maps.o(tab complete)
+
+#---------------------------------------Generating read-counts-per gene 
+
+# NOTE: Must have a tab-delimited file giving correspondence between contigs in the transcriptome fasta file and genes. Typically, each gene is represented by several contigs in the transcriptome. 
+head aiptasia_seq2iso.tab
+
+
+# counting hits per isogroup:
+samcount_launch_bt2.pl '\.sam' aiptasia_seq2iso.tab > sc
+nano sc
+
+scc6_qsub_launcher.py -N sc -P davies-hb -jobsfile sc
+#this should create a sc_array.qsub and a sc_array_commands.txt files
+
+qsub sc_array.qsub
+
+#nano sc.o(tab complete)
+#you will see this: disregarding reads mapping to multiple isogroups
+#we do not count reads that map to multiple places in this script, conservative approach.
+
+#now you have individual counts files for each of your samples. Let's compile them into a single table!
+
+# assembling all counts into a single table:
+expression_compiler.pl *.sam.counts > GnotoAiptasia_2025_counts.txt
+
+head GnotoAiptasia_2025_counts.txt
+
+# DONE! use your favorite R packaged (DESeq2, WGCNA) to make sense of the counts.
+
+#-----------------------------------------do symbiont reads
+#####copy sym only .sam files to symbiont_counts folder 
+
+
