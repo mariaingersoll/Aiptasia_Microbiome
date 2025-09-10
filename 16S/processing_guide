@@ -1,0 +1,2 @@
+#ftp from Tufts server using mget *.gz in the directory of your files
+#mget -r * might allow you to do this recursively

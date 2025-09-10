@@ -1,1 +1,2 @@
 # Aiptasia_Microbiome
+This repository contains the code, files, and figures for the manuscript on microbiome depletion and recovery in symbiotic and aposymbiotic Exaiptasia pallida by Maria Valadez-Ingersoll et al. The two main subdirectories are for 16S and Tagseq analysis.
