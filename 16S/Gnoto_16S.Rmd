@@ -961,6 +961,18 @@ proteo_plot_gnoto <- plot_bar(phylo_proteo_rel, x = "gnoto", fill = "Order")+
 proteo_plot_gnoto
 
 Fam_orig <- colorRampPalette(brewer.pal(11, "Paired"))(46)
+Fam_orig_full <- c("#A6CEE3", "#88BAD8", "#6AA7CE", "#4C94C3", "#2E81B9", "#2F83AF", "#4F9AA6", "#70B19C", "#91C893", "#B2DF8A", "#95D175", "#79C360", "#5DB54B", "#41A736", "#499F38", "#759E50", "#A29C68", "#CE9B80", "#FB9A99", "#F57D7D", "#F06161", "#993300", "#CC0000", "#990000", "#EB5037", "#F1754A", "#F79A5C", "#FCBE6E", "#FDB056", "#FDA23D", "#FE9425", "#FE860C", "#F98417", "#ED9047", "#E19B76", "#D5A6A6", "#CAB2D6", "#B497C8", "#9F7EBB", "#8A64AE", "#7449A0", "#7A5299", "#9B7D99", "#BCA899", "#DDD399", "#FFFF99")
+
+blue_col1 <- colorRampPalette(c("#000099", "#00CCFF"))
+blue1 <- blue_col1(4) 
+blue_col2 <- colorRampPalette(c("#003333", "#99CCCC"))
+blue2 <- blue_col2(4) 
+green_col1 <- colorRampPalette(c("#006700", "#B2DF8A"))
+green1 <- green_col1(4) 
+
+
+#Fam_orig_new <- c("#000099", "#0044BB", "#0088DD", "#00CCFF",  "#003333", "#326666", "#659999", "#99CCCC", "#006700", "#3B8F2D", "#76B75B", "#B2DF8A", )
+
 Fam_filt <- colorRampPalette(brewer.pal(12, "Paired"))(32)
 Fam_col <- c("#A6CEE3", "#70B19C", "#499F38", "#EB4445", "#FDB056", "#D5A6A6", "#9B7D99", "#88BAD8", "#91C893", "#759E50", "#E52829", "#FDA23D", "#CAB2D6" , "#BCA899", "#6AA7CE", "#B2DF8A", "#A29C68", "#E52C25", "#FE9425", "#B497C8", "#DDD399", "#4C94C3", "#95D175", "#CE9B80", "#EB5037", "#FE860C","#9F7EBB", "#FFFF99", "#2E81B9",  "#79C360", "#FB9A99", "#F1754A", "#F98417", "#8A64AE", "#2F83AF", "#5DB54B", "#F57D7D", "#F79A5C", "#ED9047", "#7449A0", "#4F9AA6", "#41A736", "#F06161", "#FCBE6E", "#E19B76", "#7A5299")
 
@@ -1091,11 +1103,11 @@ calculate the relative abundance by treatment for protoebacteria
 #phylo_proteo <- subset_taxa(phylo_trim_rare, Phylum %in% "Proteobacteria")
 #phylo_proteo_rel <- transform_sample_counts(phylo_proteo, function(x) x / sum(x)) done above, just showing again here
 
-phylo_proteo_rel_filt@sam_data$treatment <- as.factor(phylo_proteo_rel_filt@sam_data$treatment)
-phylo_proteo_rel_filt@sam_data$gnoto <- as.factor(phylo_proteo_rel_filt@sam_data$gnoto)
-phylo_proteo_rel_filt@sam_data$symstate <- as.factor(phylo_proteo_rel_filt@sam_data$symstate)
+phylo_proteo_rel@sam_data$treatment <- as.factor(phylo_proteo_rel@sam_data$treatment)
+phylo_proteo_rel@sam_data$gnoto <- as.factor(phylo_proteo_rel@sam_data$gnoto)
+phylo_proteo_rel@sam_data$symstate <- as.factor(phylo_proteo_rel@sam_data$symstate)
 
-proteo_trt <- merge_samples(phylo_proteo_rel_filt, "treatment")  # merge samples with same treatment 
+proteo_trt <- merge_samples(phylo_proteo_rel, "treatment")  # merge samples with same treatment 
 
 proteo_rel_trt <- transform_sample_counts(proteo_trt, function(x) x / sum(x)) # summarize rel abundance 
 proteo_rel_trt@sam_data[["treatment"]] <- levels(phylo_proteo_rel@sam_data[["treatment"]]) # need to rename treatment levels
@@ -1106,14 +1118,69 @@ proteo_plotF_gnotoTRT <- plot_bar(proteo_rel_trt, x = "gnoto", fill = "Family")+
   geom_bar(stat="identity") +
   theme_bw() +
   theme(panel.grid = element_blank(), legend.position = "bottom") +
-  scale_fill_manual(values = Fam_filt) +
-  scale_colour_manual(values = Fam_filt) +
+  scale_fill_manual(values = Fam_orig_full) +
+  scale_colour_manual(values = Fam_orig_full) +
   facet_wrap(~ symstate, ncol = 2, scale= "free") +
   scale_x_discrete(guide = guide_axis(angle = 45))+
   ggtitle("Proteobacteria ASVs (relative abundance)")
 proteo_plotF_gnotoTRT
 #proteo_plotFamily_RelAbunTRT as 9x6.5 landscape
 ggplotly(proteo_plotF_gnotoTRT)
+
+write.csv(proteo_rel_trt@tax_table,file="./16S/files/rel_tax_table.csv",row.names=TRUE,quote=FALSE)
+write.csv(proteo_rel_trt@otu_table,file="./16S/files/rel_otu_table.csv",row.names=TRUE,quote=FALSE)
+
+
+###below is if i were using the 0.05 relative abundance cutoff
+
+#phylo_proteo_rel_filt@sam_data$treatment <- as.factor(phylo_proteo_rel_filt@sam_data$treatment)
+#phylo_proteo_rel_filt@sam_data$gnoto <- as.factor(phylo_proteo_rel_filt@sam_data$gnoto)
+#phylo_proteo_rel_filt@sam_data$symstate <- as.factor(phylo_proteo_rel_filt@sam_data$symstate)
+
+#proteo_trt <- merge_samples(phylo_proteo_rel_filt, "treatment")  # merge samples with same treatment 
+
+#proteo_rel_trt <- transform_sample_counts(proteo_trt, function(x) x / sum(x)) # summarize rel abundance 
+#proteo_rel_trt@sam_data[["treatment"]] <- levels(phylo_proteo_rel@sam_data[["treatment"]]) # need to rename treatment levels
+#proteo_rel_trt@sam_data[["gnoto"]] <- c("plus0ab", "plus0ab", "control", "control", "plus2ab", "plus2ab", "recovery", "recovery") #did manually bc alphabetical order was messing it up
+#proteo_rel_trt@sam_data[["symstate"]] <- levels(phylo_proteo_rel@sam_data[["symstate"]])
+
+#proteo_plotF_gnotoTRT <- plot_bar(proteo_rel_trt, x = "gnoto", fill = "Family")+
+#  geom_bar(stat="identity") +
+#  theme_bw() +
+#  theme(panel.grid = element_blank(), legend.position = "bottom") +
+#  scale_fill_manual(values = Fam_filt) +
+#  scale_colour_manual(values = Fam_filt) +
+#  facet_wrap(~ symstate, ncol = 2, scale= "free") +
+#  scale_x_discrete(guide = guide_axis(angle = 45))+
+#  ggtitle("Proteobacteria ASVs (relative abundance)")
+#proteo_plotF_gnotoTRT
+#proteo_plotFamily_RelAbunTRT as 9x6.5 landscape
+#ggplotly(proteo_plotF_gnotoTRT)
+```
+
+```{r}
+all_rel <- as.data.frame(phylo_trim_rare_rel@otu_table)
+all_rel <- rownames_to_column(all_rel, var="lane")
+endo_sam2 <- as.data.frame(phylo_trim_rare_rel@sam_data)
+all_rel <- all_rel %>%
+  full_join(endo_sam2)
+write.csv(all_rel, file="all_data_relative.csv", quote=F,row.names = FALSE)
+all_rel_sym <- all_rel %>%
+  subset(all_rel$symstate == "sym")
+
+aov.all_rel_sym <- aov(all_rel_sym$ASV1 ~ all_rel_sym$gnoto)
+summary(aov.all_rel_sym)
+TukeyHSD(aov.all_rel_sym)
+
+capture.output( for (i in all_rel_sym[,2:265]) {
+  print(TukeyHSD(aov(i ~ all_rel_sym$gnoto)))
+}, file="log_aov.txt", quote=F, row.names = FALSE)
+
+up_sym_asv <- c("ASV1", "ASV3", "ASV7", "ASV15", "ASV16", "ASV17", "ASV19", "ASV24", "ASV25", "ASV28", "ASV29", "ASV35", "ASV43", "ASV57", "ASV63", "ASV66", "ASV68", "ASV70", "ASV73", "ASV108", "ASV144", "ASV162", "ASV195")
+all_rel_seq <- as.data.frame(phylo_trim_rare_rel@tax_table)
+up_sym_seq <- all_rel_seq %>%
+  subset(rownames(all_rel_seq) %in% up_sym_asv)
+write.csv(up_sym_seq, file="./16S/files/sig_rel_up_ASV.csv", quote=F,row.names = TRUE)
 ```
 
 
