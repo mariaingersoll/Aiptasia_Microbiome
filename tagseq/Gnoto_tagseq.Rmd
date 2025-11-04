@@ -1621,7 +1621,7 @@ MEs0 <- moduleEigengenes(input_t, mergedColors)$eigengenes
 MEs0 <- orderMEs(MEs0)
 
 #back into JK here
-nGenes <- ncol(input_t)
+nGenes <- ncol(input_t) #16345
 nSamples <- nrow(input_t)
 # correlations of genes with eigengenes
 moduleGeneCor <- cor(MEs, input_t)
@@ -1737,9 +1737,9 @@ barplot2 <- ggplot(data = modLabels_plot, aes(y = Freq, x = moduleColors, fill =
 barplot2
 
 # Combine heatmap and barplot side by side
-combined_plot <- plot_grid(heatmap, barplot2, ncol = 2, align = "h", rel_widths = c(1.05, 1))
+combined_plot <- plot_grid(heatmap, barplot2, ncol = 1, align = "h", rel_widths = c(1, 1))
 combined_plot
-#saved as wgcna_full as 12x5
+#saved as wgcna_full as 12.5x8
 ```
 
 wgcna mod/trait plots and files
@@ -2233,6 +2233,8 @@ random immune: GO:0002335|GO:0042110|GO:0050852|GO:0051607|GO:0045321;GO:0046649
 apoptosis: GO:0097194|
 
 cytokine: GO:0034097;GO:0071345|GO:0001817
+
+26 terms
 ```{r}
 #all immune go terms
 immune_all_blue = bp_blue %>%

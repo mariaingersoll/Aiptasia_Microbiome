@@ -19,6 +19,8 @@ head(wgcna_metadata)
 wgcna_metadata_sym <- wgcna_metadata[c(5:9, 14:18, 24:29, 35:39),] %>%
   select(-P0A, -P0S, -CA, -CS, -P2A, -P2S, -RA, -RS, -Apo, -Sym)
 head(wgcna_metadata_sym)
+wgcna_metadata_sym$changeRval <- c("-0.021575987", "-0.021575987", "-0.021575987", "-0.021575987", "-0.021575987", "-0.126644545", "-0.126644545", "-0.126644545", "-0.126644545", "-0.126644545", "0.175175245", "0.175175245", "0.175175245", "0.175175245", "0.175175245", "0.175175245",  "0.025518503", "0.025518503", "0.025518503", "0.025518503", "0.025518503")
+  
 
 str(wgcna_metadata_sym)
 all(rownames(wgcna_metadata_sym) == colnames(countData_sym))
@@ -147,19 +149,19 @@ plot(sft_sym$fitIndices[,1], sft_sym$fitIndices[,5],
 text(sft_sym$fitIndices[,1], sft_sym$fitIndices[,5], labels=powers, cex=cex1,col="red")
 #based on R2 seems the lowest to plateau in Mean connectivity and R2 is ~90
 
-softPower=15 #smallest value to plateau at ~0.9 I pick 
-adjacency_sym=adjacency(input_t_sym, power=softPower,type="signed") #must change method type here too!!
+softPower_sym=10 #smallest value to plateau at ~0.9 CHANGEING FROM 15 TO 10
+adjacency_sym=adjacency(input_t_sym, power=softPower_sym,type="signed") #must change method type here too!!
 ```
 
 ```{r}
-picked_power = 15 ##smallest value to plateau at ~0.9 I pick 10 as it the the curve starts to plateu in my previous plot
+picked_power_sym = 10 ##smallest value to plateau at ~0.9 I pick 10 as it the the curve starts to plateu in my previous plot
 temp_cor <- cor       
 cor <- WGCNA::cor    # Force it to use WGCNA cor function (fix a namespace conflict issue)
 
 netwk_sym <- blockwiseModules(input_t_sym,        # <= input here
 
                           # == Adjacency Function ==
-                          power = picked_power,          # <= power here
+                          power = picked_power_sym,          # <= power here
                           networkType = "signed",
 
                           # == Tree and Block Options ==
@@ -185,18 +187,18 @@ cor <- temp_cor     # Return cor function to original namespace
 
 ```{r}
 # Convert labels to colors for plotting
-mergedColors = labels2colors(netwk_sym$colors)
+mergedColors_sym = labels2colors(netwk_sym$colors)
 # Plot the dendrogram and the module colors underneath
 plotDendroAndColors(
   netwk_sym$dendrograms[[1]],
-  mergedColors[netwk_sym$blockGenes[[1]]],
+  mergedColors_sym[netwk_sym$blockGenes[[1]]],
   "Module colors",
   dendroLabels = FALSE,
   hang = 0.03,
   addGuide = TRUE,
   guideHang = 0.05 )
 #dev.off()
-# saved as dendrogram_thresh_sft13_signed
+# saved as dendrogram_thresh_sft10_signed_sym
 ```
 
 ```{r}
@@ -204,140 +206,146 @@ plotDendroAndColors(
 
 #lnames = load(file="Pacuta_Samples_Traits_ALL_no_outlier_fin.RData")
 #translate the adjacency into topological overlap matrix and calculate the corresponding dissimilarity:
-TOM<- TOMsimilarity(adjacency_sym,TOMType = "signed")
-dissTOM= 1-TOM
+TOM_sym<- TOMsimilarity(adjacency_sym,TOMType = "signed")##here
+dissTOM_sym= 1-TOM_sym
 
 
-geneTree= flashClust(as.dist(dissTOM), method="average")
-plot(geneTree, xlab="", sub="", main= "Gene Clustering on TOM-based dissimilarity", labels= FALSE,hang=0.04)
+geneTree_sym= flashClust(as.dist(dissTOM_sym), method="average")
+plot(geneTree_sym, xlab="", sub="", main= "Gene Clustering on TOM-based dissimilarity", labels= FALSE,hang=0.04)
 ```
 
 ```{r}
 #each leaf corresponds to a gene, branches grouping together densely are interconnected, highly co-expressed genes
 minModuleSize=95 #we only want large modules
-dynamicMods= cutreeDynamic(dendro= geneTree, distM= dissTOM, deepSplit=2, pamRespectsDendro= FALSE, minClusterSize= minModuleSize)
-table(dynamicMods)
+dynamicMods_sym= cutreeDynamic(dendro= geneTree_sym, distM= dissTOM_sym, deepSplit=2, pamRespectsDendro= FALSE, minClusterSize= minModuleSize)
+table(dynamicMods_sym)
 
 
-dynamicColors= labels2colors(dynamicMods)
+dynamicColors_sym= labels2colors(dynamicMods_sym)
 #plot dendrogram and colors underneath
 #sizeGrWindow(8,6)
-plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut", dendroLabels= FALSE, hang=0.03, addGuide= TRUE, guideHang= 0.05, main= "Gene dendrogram and module colors")
-# saved as dendrogram_thresh_sft13_signed_2
+plotDendroAndColors(geneTree_sym, dynamicColors_sym, "Dynamic Tree Cut", dendroLabels= FALSE, hang=0.03, addGuide= TRUE, guideHang= 0.05, main= "Gene dendrogram and module colors")
+# saved as dendrogram_thresh_sft10_signed_2_sym
 
 #Merg modules whose expression profiles are very similar
 #calculate eigengenes
-MEList= moduleEigengenes(input_t_sym, colors= dynamicColors)
+MEList_sym= moduleEigengenes(input_t_sym, colors= dynamicColors_sym)
 
-MEs= MEList$eigengenes
+MEs_sym= MEList_sym$eigengenes
 # if you have error messages trying to generate the eigengene correlations, run this below
 # check MEs, if grey shows NaN for all samples, then make sure to eliminate it using removeGreyME
+#THE GREY MODULE IS WHERE WGCNA ASSIGNS GENES IT DOESN'T KNOW WHERE ELSE TO ASSIGN SO IT DOESN'T FOLLOW THE MIN SIZE AND ITS NOT A REAL NETWORK
 
-MEs = removeGreyME(MEs, greyMEName = paste(moduleColor.getMEprefix(), "grey", sep=""))
+MEs_sym = removeGreyME(MEs_sym, greyMEName = paste(moduleColor.getMEprefix(), "grey", sep=""))
 #Calculate dissimilarity of module eigenegenes
-MEDiss= 1-cor(MEs)
+MEDiss_sym= 1-cor(MEs_sym)
 #Cluster module eigengenes
-METree= flashClust(as.dist(MEDiss), method= "average")
+METree_sym= flashClust(as.dist(MEDiss_sym), method= "average")
 
 #plot
-plot(METree, main= "Clustering of module eigengenes", xlab= "", sub= "")
-MEDissThres= 0.45 
-abline(h=MEDissThres, col="red")
-#CLUSTER_TREE_Module_eigengenes
+plot(METree_sym, main= "Clustering of module eigengenes", xlab= "", sub= "")
+MEDissThres_sym= 0.45 
+abline(h=MEDissThres_sym, col="red")
+#CLUSTER_TREE_Module_eigengenes_sym
 ```
 
 ```{r}
-merge= mergeCloseModules(input_t_sym, dynamicColors, cutHeight= MEDissThres, verbose =3)
+merge_sym= mergeCloseModules(input_t_sym, dynamicColors_sym, cutHeight= MEDissThres_sym, verbose =3)
 
-mergedColors= merge$colors
-mergedMEs= merge$newMEs
+mergedColors_sym= merge_sym$colors
+mergedMEs_sym= merge_sym$newMEs
 
-plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
+plotDendroAndColors(geneTree_sym, cbind(dynamicColors_sym, mergedColors_sym),
                     c("Dynamic Tree Cut", "Merged dynamic"),
                     dendroLabels = FALSE, hang = 0.03,
                     addGuide = FALSE, guideHang = 0.05,lwd=0.3)
-#Cluster_dendo_MergeNetwork_dendrogram_mdist_45
+#Cluster_dendo_MergeNetwork_dendrogram_mdist_45_sym
 ```
 
 ```{r}
 # Rename to moduleColors
-moduleColors= mergedColors
+moduleColors_sym= mergedColors_sym
 # Construct numerical labels corresponding to the colors
-colorOrder= c("grey", standardColors(50))
-moduleLabels= match(moduleColors, colorOrder)-1
-MEs=mergedMEs
-MEs = removeGreyME(MEs, greyMEName = paste(moduleColor.getMEprefix(), "grey", sep=""))
-MEDiss = 1-cor(MEs);
+colorOrder_sym= c("grey", standardColors(50))
+moduleLabels_sym= match(moduleColors_sym, colorOrder_sym)-1
+MEs_sym=mergedMEs_sym
+MEs_sym = removeGreyME(MEs_sym, greyMEName = paste(moduleColor.getMEprefix(), "grey", sep=""))
+MEDiss_sym = 1-cor(MEs_sym);
 # Cluster module eigengenes
-METree = flashClust(as.dist(MEDiss), method = "average");
+METree_sym = flashClust(as.dist(MEDiss_sym), method = "average");
 # Plot the result
-plot(METree, xlab = "Merged modules", sub = "")
+plot(METree_sym, xlab = "Merged modules", sub = "")
 
 #get number of genes in each module
-table(moduleColors)
+table(moduleColors_sym)#here
 ```
 
 ```{r}
-module_df <- data.frame(
+module_df_sym <- data.frame(
   gene_id = names(netwk_sym$colors),
   colors = labels2colors(netwk_sym$colors)
 )
 
-module_df[1:5,]
+module_df_sym[1:5,]
 
-write_delim(module_df,
+write_delim(module_df_sym,
             file = "./data_files/gene_modules_sym.txt",
             delim = "\t")
 
 # Get Module Eigengenes per cluster
-MEs0 <- moduleEigengenes(input_t_sym, mergedColors)$eigengenes
+MEs0_sym <- moduleEigengenes(input_t_sym, mergedColors_sym)$eigengenes
 
 # Reorder modules so similar modules are next to each other
-MEs0 <- orderMEs(MEs0)
+MEs0_sym <- orderMEs(MEs0_sym)
 
 #back into JK here
-nGenes <- ncol(input_t_sym)
-nSamples <- nrow(input_t_sym)
+nGenes_sym <- ncol(input_t_sym) #16283
+nSamples_sym <- nrow(input_t_sym) #21
 # correlations of genes with eigengenes
-moduleGeneCor <- cor(MEs, input_t_sym)
-moduleGenePvalue <- corPvalueStudent(moduleGeneCor, nSamples)
-moduleTraitCor <- cor(MEs, wgcna_metadata_sym, use = "p")
-moduleTraitPvalue <- corPvalueStudent(moduleTraitCor, nSamples)
+moduleGeneCor_sym <- cor(MEs_sym, input_t_sym)
+moduleGenePvalue_sym <- corPvalueStudent(moduleGeneCor_sym, nSamples_sym)
+moduleTraitCor_sym <- cor(MEs_sym, wgcna_metadata_sym, use = "p")
+moduleTraitPvalue_sym <- corPvalueStudent(moduleTraitCor_sym, nSamples_sym)
 
 # module-trait correlations
-textMatrix <- paste(signif(moduleTraitCor, 2), "\n(",
-                    signif(moduleTraitPvalue, 1), ")", sep = "");
-dim(textMatrix) <- dim(moduleTraitCor)
+textMatrix_sym <- paste(signif(moduleTraitCor_sym, 2), "\n(",
+                    signif(moduleTraitPvalue_sym, 1), ")", sep = "");
+dim(textMatrix_sym) <- dim(moduleTraitCor_sym)
 par(mar = c(6, 8.5, 3, 3));
-table(moduleColors)
-#moduleColors
-   #black      blue     brown     green   magenta      pink    purple       red 
-   #   615      4348      2382       989       159       368       143       816 
-#turquoise    yellow 
-   # 5505      1020 
+table(moduleColors_sym)
+#moduleColors_sym
+#     moduleColors_sym
+#        black          blue         brown          cyan     darkgreen 
+#         1659          1630          1549           403           232 
+#      darkred darkturquoise         green   greenyellow     lightcyan 
+#          256           568          1088           897           696 
+#  lightyellow       magenta          pink           red     royalblue 
+#          292           682          1337          2188           259 
+#    turquoise 
+#         2547
 ```
 
 ```{r}
 # shows only significant correlations
-modLabels <- sub("ME","",names(MEs))
-ps <- signif(moduleTraitPvalue,1)
-cors <- signif(moduleTraitCor,2)
-textMatrix <-  cors;
-textMatrix[ps>0.05]="-"
-dim(textMatrix) <- dim(moduleTraitCor)
+modLabels_sym <- sub("ME","",names(MEs_sym))
+ps_sym <- signif(moduleTraitPvalue_sym,1)
+cors_sym <- signif(moduleTraitCor_sym,2)
+textMatrix_sym <-  cors_sym;
+textMatrix_sym[ps_sym>0.05]="-"
+dim(textMatrix_sym) <- dim(moduleTraitCor_sym)
 
-mod_df <- data.frame(module = row.names(moduleTraitCor), moduleTraitCor) %>% 
+mod_df_sym <- data.frame(module = row.names(moduleTraitCor_sym), moduleTraitCor_sym) %>% 
   gather("trait", "corr", -module, factor_key = TRUE) %>% 
-  mutate(module = factor(module, levels = rownames(moduleTraitCor))) %>% 
+  mutate(module = factor(module, levels = rownames(moduleTraitCor_sym))) %>% 
   mutate(module = fct_rev(module))
 
-mod_pval_df <- data.frame(module = row.names(ps), ps) %>% 
+mod_pval_df_sym <- data.frame(module = row.names(ps_sym), ps_sym) %>% 
   gather("trait", "pval", -module, factor_key = TRUE) %>% 
-  mutate(module = factor(module, levels = rownames(ps))) %>% 
+  mutate(module = factor(module, levels = rownames(ps_sym))) %>% 
   mutate(module = fct_rev(module))
 
-mod_df <- mod_df %>% 
-  add_column(lab = mod_pval_df$pval) %>% 
+mod_df_sym <- mod_df_sym %>% 
+  add_column(lab = mod_pval_df_sym$pval) %>% 
   mutate(lab = ifelse(lab > 0.05, "-", round(corr,2)))
 
 #### Heatmap of modules from WGCNA
@@ -353,7 +361,7 @@ theme_bove <- function() {
 }
 col0 <- colorRampPalette(rev(c("firebrick", "lightcoral", "white", "lightblue", "dodgerblue4")))(100)
 #col0 <- colorRampPalette(rev(c("chocolate1", "#FEE090", "white", "cyan3", "cyan")))(100)
-heatmap <- ggplot(data = mod_df, aes(x = trait, y = module, fill = corr)) +
+heatmap_sym <- ggplot(data = mod_df_sym, aes(x = trait, y = module, fill = corr)) +
   theme_bove() +
   geom_tile() +
   geom_text(aes(label = lab), color = "#2f2f2f", size = 3) +
@@ -366,7 +374,7 @@ heatmap <- ggplot(data = mod_df, aes(x = trait, y = module, fill = corr)) +
     axis.title = element_blank(),
     axis.text.x = element_text(angle = 45, hjust = 1, size = 12)
   ) +
-  scale_x_discrete(labels = colnames(moduleTraitCor)) +
+  scale_x_discrete(labels = colnames(moduleTraitCor_sym)) +
   guides(fill = guide_colourbar(
     barwidth = 0.7,
     barheight = 10,
@@ -375,46 +383,46 @@ heatmap <- ggplot(data = mod_df, aes(x = trait, y = module, fill = corr)) +
     title = expression(paste("Pearson ", R^{2}))
   )) +
   coord_cartesian(expand = FALSE)
-heatmap
-#heatmap_prelim
+heatmap_sym
+#heatmap_prelim_sym_new
 
 #### barplot of genes within each module
-mct <- table(moduleColors)
-modLabels_plot <- as.data.frame(mct[rev(modLabels)])
-modLabels_plot2 <- as.character(modLabels_plot$moduleColors)
+mct_sym <- table(moduleColors_sym)
+modLabels_plot_sym <- as.data.frame(mct_sym[rev(modLabels_sym)])
+modLabels_plot2_sym <- as.character(modLabels_plot_sym$moduleColors)
 #modLabels2 <- gsub("turquoise", "teal", modLabels_plot2)
 
 library(cowplot)
-barplot <- ggplot(data = modLabels_plot, aes(y = Freq, x = moduleColors, fill = moduleColors)) +
+barplot_sym <- ggplot(data = modLabels_plot_sym, aes(y = Freq, x = moduleColors_sym, fill = moduleColors_sym)) +
   geom_col(colour = "black", size = 0.1) +
-  scale_fill_manual(values = modLabels_plot2) +
+  scale_fill_manual(values = modLabels_plot2_sym) +
   theme_cowplot() +
   coord_flip(expand = FALSE) +
   #scale_y_manual(limits=c(8000, 0), breaks = c(1000, 2000, 3000,4000,5000,6000,7000,8000)) +
-  geom_text(aes(label = paste0(rev(modLabels), " (", Freq, ")")), hjust = 0.03, color="black", size = 3) +
+  geom_text(aes(label = paste0(rev(modLabels_sym), " (", Freq, ")")), hjust = 0.03, color="black", size = 3) +
   theme(axis.ticks.y = element_blank(), axis.title.y = element_blank(), legend.position = "none", axis.line.y = element_blank(), axis.line.x = element_line(size = 0.2), axis.text.y = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1, size = 10), axis.title.x = element_text(size = 10)) +
   ylab("# genes\n per module")+
-  scale_y_continuous(limits = c(0,4000), breaks = c(200, 400, 800, 1200, 1800, 2400, 3200,4000))
-barplot
+  scale_y_continuous(limits = c(0,3000), breaks = c(200, 400, 800, 1200, 1800, 2400, 3000))
+barplot_sym
 
-barplot2 <- ggplot(data = modLabels_plot, aes(y = Freq, x = moduleColors, fill = moduleColors)) +
+barplot2_sym <- ggplot(data = modLabels_plot_sym, aes(y = Freq, x = moduleColors_sym, fill = moduleColors_sym)) +
   geom_col(colour = "black", size = 0.1) +
-  scale_fill_manual(values = modLabels_plot2) +
+  scale_fill_manual(values = modLabels_plot2_sym) +
   theme_cowplot() +
   coord_flip(expand = FALSE) +
-  geom_text(aes(label = paste0(rev(modLabels), " (", Freq, ")")), hjust = -0.1, color="black", size = 3) +  # Adjust hjust for better positioning
+  geom_text(aes(label = paste0(rev(modLabels_sym), " (", Freq, ")")), hjust = -0.1, color="black", size = 3) +  # Adjust hjust for better positioning
   theme(axis.ticks.y = element_blank(), axis.title.y = element_blank(), legend.position = "none", 
         axis.line.y = element_blank(), axis.line.x = element_line(size = 0.2), 
         axis.text.y = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1, size = 10), 
         axis.title.x = element_text(size = 10)) +
   ylab("# genes\n per module") +
-  scale_y_continuous(limits = c(0,4000), breaks = c(200, 400, 800, 1200, 1800, 2400, 3200,4000))
-barplot2
+  scale_y_continuous(limits = c(0,3000), breaks = c(200, 400, 800, 1200, 1800, 2400, 3000))
+barplot2_sym
 
 # Combine heatmap and barplot side by side
-combined_plot <- plot_grid(heatmap, barplot2, ncol = 2, align = "h", rel_widths = c(0.4, 1))
-combined_plot
-#saved as wgcna_full_sym as 12x5
+combined_plot_sym <- plot_grid(heatmap_sym, barplot2_sym, ncol = 1, align = "h", rel_widths = c(1, 1))
+combined_plot_sym
+#saved as wgcna_full_sym as 10x8 portrait
 ```
 
 
@@ -688,6 +696,13 @@ plot(METree_apo, xlab = "Merged modules", sub = "")
 
 #get number of genes in each module
 table(moduleColors_apo)
+#moduleColors_apo
+#       black         blue        brown         cyan        green  greenyellow 
+#        1659         3429         1501         1292         1150         2154 
+#        grey       grey60    lightcyan midnightblue         pink       purple 
+#          12          334          366          390          975          718 
+#      salmon    turquoise 
+#         564         2388 
 ```
 
 ```{r}
@@ -820,18 +835,18 @@ barplot2_apo <- ggplot(data = modLabels_plot_apo, aes(y = Freq, x = moduleColors
 barplot2_apo
 
 # Combine heatmap and barplot side by side
-combined_plot_apo <- plot_grid(heatmap_apo, barplot2_apo, ncol = 2, align = "h", rel_widths = c(0.8, 1))
+combined_plot_apo <- plot_grid(heatmap_apo, barplot2_apo, ncol = 1, align = "h", rel_widths = c(1, 1))
 combined_plot_apo
-#saved as wgcna_full_apo as 12.5x5
+#saved as wgcna_full_apo as 12.5x5 no 8x8
 ```
 
 #GO for sym
 ```{r}
 nGenes_sym <- ncol(input_t_sym) # extract number of genes; (datExpr = transposed VSD transformed count data)
 nSamples_sym <- nrow(input_t_sym) # extract number of samples; (datExpr = transposed VSD transformed count data)
-modNames_sym <- substring(names(MEs), 3) # string of all module names 
+modNames_sym <- substring(names(MEs_sym), 3) # string of all module names 
 
-geneModuleMembership_sym <- as.data.frame(signedKME(input_t_sym,MEs));
+geneModuleMembership_sym <- as.data.frame(signedKME(input_t_sym,MEs_sym));
 MMPvalue_sym <- as.data.frame(corPvalueStudent(as.matrix(geneModuleMembership_sym), nSamples_sym));
 names(geneModuleMembership_sym) <- paste("MM", modNames_sym, sep="");
 names(MMPvalue_sym) <- paste("p.MM", modNames_sym, sep="")
@@ -842,14 +857,14 @@ write.csv(geneModuleMembership_sym, file = "./data_files/geneModuleMembership_KM
 ```
 
 ```{r}
-table(moduleColors)
+table(moduleColors_sym)
 
 # Get unique module names
-unique_modules_sym <- unique(moduleColors)
+unique_modules_sym <- unique(moduleColors_sym)
 unique_modules_sym
 # Create a list of genes by module
 genes_by_module_sym <- lapply(unique_modules_sym, function(module) {
-  colnames(input_t_sym)[moduleColors == module]
+  colnames(input_t_sym)[moduleColors_sym == module]
 })
 
 # Name the list elements by their module names
@@ -868,23 +883,23 @@ for (module in names(genes_by_module_sym)) {
 ## A couple things to do before running functions
 nGenes_sym <- ncol(input_t_sym) # extract number of genes; (datt = transposed VSD transformed count data)
 nSamples_sym <- nrow(input_t_sym) # extract number of samples; (datt = transposed VSD transformed count data)
-modNames_sym <- substring(names(MEs), 3) # string of all module names 
+modNames_sym <- substring(names(MEs_sym), 3) # string of all module names 
 modNames_sym
-geneModuleMembership_sym <- as.data.frame(signedKME(input_t_sym, MEs));
+geneModuleMembership_sym <- as.data.frame(signedKME(input_t_sym, MEs_sym));
 MMPvalue_sym <- as.data.frame(corPvalueStudent(as.matrix(geneModuleMembership_sym), nSamples_sym));
 names(geneModuleMembership_sym) <- paste("Sym_MM", modNames_sym, sep="");
 names(MMPvalue_sym) <- paste("Sym_p.MM", modNames_sym, sep="")
 geneModuleMembership_sym
 write.csv(geneModuleMembership_sym, "./data_files/Sym_WGCNA_KMEValuer.csv", quote=F)
 ## Select the significant trait/module pairings from the WGCNA heatmap 
-traitMods_sym <- sigMods(matrix = moduleTraitPvalue,alpha=0.05) ## **NOTE: default alpha is set you 0.05 but can be adjusted by specifying 'alpha = XX' here
+traitMods_sym <- sigMods(matrix = moduleTraitPvalue_sym,alpha=0.05) ## **NOTE: default alpha is set you 0.05 but can be adjusted by specifying 'alpha = XX' here
 
 ```
 
 ```{r}
 ####################
 head(wgcna_metadata_sym)
-module_eigengenes_sym <- MEs
+module_eigengenes_sym <- MEs_sym
 head(module_eigengenes_sym)
 expDesign_full_sym <- wgcna_metadata_sym
 expDesign_full_sym$anemone<-row.names(expDesign_full_sym)
@@ -906,7 +921,6 @@ fit_sym <- limma::eBayes(fit_sym)
 stats_df_sym <- limma::topTable(fit_sym, number = ncol(module_eigengenes_sym)) %>%
   tibble::rownames_to_column("module")
 head(stats_df_sym)
-#blue, greenyellow, and pink are not significant for the combined treatment variable (blue is 0.054)
 ```
 
 ```{r}
@@ -934,22 +948,29 @@ MEblack_sym <- read.table(file = "./data_files/Sym_Module_black_genes.txt")
 MEblue_sym <- read.table(file = "./data_files/Sym_Module_blue_genes.txt")
 MEbrown_sym <- read.table(file = "./data_files/Sym_Module_brown_genes.txt")
 MEcyan_sym <- read.table(file = "./data_files/Sym_Module_cyan_genes.txt")
+MEdarkgreen_sym <- read.table(file = "./data_files/Sym_Module_darkgreen_genes.txt")
+MEdarkred_sym <- read.table(file = "./data_files/Sym_Module_darkred_genes.txt")
+MEdarkturquoise_sym <- read.table(file = "./data_files/Sym_Module_darkturquoise_genes.txt")
 MEgreen_sym <- read.table(file = "./data_files/Sym_Module_green_genes.txt")
 MEgreenyellow_sym <- read.table(file = "./data_files/Sym_Module_greenyellow_genes.txt")
-MEgrey60_sym <- read.table(file = "./data_files/Sym_Module_grey60_genes.txt")
+MElightcyan_sym <- read.table(file = "./data_files/Sym_Module_lightcyan_genes.txt")
+MElightyellow_sym <- read.table(file = "./data_files/Sym_Module_lightyellow_genes.txt")
+MEmagenta_sym <- read.table(file = "./data_files/Sym_Module_magenta_genes.txt")
 MEpink_sym <- read.table(file = "./data_files/Sym_Module_pink_genes.txt")
-MEpurple_sym <- read.table(file = "./data_files/Sym_Module_purple_genes.txt")
 MEred_sym <- read.table(file = "./data_files/Sym_Module_red_genes.txt")
-MEyellow_sym <- read.table(file = "./data_files/Sym_Module_yellow_genes.txt")
+MEroyalblue_sym <- read.table(file = "./data_files/Sym_Module_royalblue_genes.txt")
+MEturquoise_sym <- read.table(file = "./data_files/Sym_Module_turquoise_genes.txt")
 ```
 
 ```{r}
+#change wd to data_files
+setwd("./data_files/")
 # Filter genes
 wgcna_countdata_sym <- wgcna_countdata_sym[rowSums(wgcna_countdata_sym >= min_count) >= min_samples, ]
 
 #create a new matrix file that has presence=1, or absence=0 of genes in each module
 # Get a list of all module files in the current directory
-module_files_sym <- list.files(pattern = "./data_files/Sym_Module_.*_genes.txt")
+module_files_sym <- list.files(pattern = "Sym_Module_.*_genes.txt")
 
 # Process each module file
 for (file in module_files_sym) {
@@ -969,9 +990,10 @@ for (file in module_files_sym) {
   )
   
   # Save this data frame to a new CSV file
-  output_file <- paste0("./data_files/Sym_Presence_", module_name, ".csv")
+  output_file <- paste0("Sym_Presence_", module_name, ".csv")
   write.csv(presence_data, output_file, row.names = FALSE)
 }
+
 ```
 
 run GO in data_files directory
@@ -985,6 +1007,7 @@ source("gomwu.functions.R")
 goDivision="BP"
 ```
 
+remove quotes from the terms in the presence files
 ```{r}
 #plot black module
 pblack_sym="Sym_Presence_black.csv"
@@ -993,7 +1016,7 @@ gomwuStats(pblack_sym, goDatabase, goAnnotations, goDivision,
            largest=0.15,
            smallest=10,
            clusterCutHeight=0.25)
-#29
+#105
 
 gomwuPlot(pblack_sym,goAnnotations,goDivision,
           absValue=0.001,  # genes with the measure value exceeding this will be counted as "good genes". This setting is for signed log-pvalues. Specify absValue=0.001 if you are doing Fisher's exact test for standard GO enrichment or analyzing a WGCNA module (all non-zero genes = "good genes").
@@ -1005,7 +1028,7 @@ gomwuPlot(pblack_sym,goAnnotations,goDivision,
           treeHeight=0.25, # height of the hierarchical clustering tree
           #colors=c("goldenrod4", "goldenrod2", "gold2",  "gray10")  # darker color is more signif
 )
-#saved as pblack_symBP as landscape 10x7
+#saved as pblack_symBP as portrait 20x10 --> THIS IS NEW IMMUNE
 ```
 
 ```{r}
@@ -1618,7 +1641,7 @@ gomwuPlot(pturquoise_apo,goAnnotations,goDivision,
 ```
 
 Pull the DEGs from the immune-linked modules
-#MEred_sym
+#MEred_sym OLD
 general "immune": GO:0002376|GO:0006955;GO:0045087;GO:0140546;GO:0098542|GO:0002253;GO:0002757;GO:0002764|GO:0050776|GO:0002682|GO:0050778|GO:0002252|GO:0002768|GO:0002684|GO:0002697|GO:0002429|GO:0002263;GO:0002366
 
 "defense": GO:0006952|GO:0031347
@@ -1636,18 +1659,57 @@ not doing response to stress
 
 --> 35 terms
 
+#MEblack_sym
+general "immune": GO:0006955;GO:0045087;GO:0140546;GO:0098542|GO:0002376|	
+GO:0002253;GO:0002757;GO:0002764|GO:0002684|GO:0050778|GO:0050776|GO:0002682|GO:0002252|GO:0002768|GO:0002429
+
+nfkb: GO:0051092|GO:0043122
+
+interleukin: GO:0032663
+
+"defense": GO:0006952
+
+random immune" GO:1903131;GO:0002521|GO:0050851|GO:0002335|GO:0050852|GO:0009615|GO:0030183|GO:1902105;GO:1902107;GO:1903708|GO:0045321;GO:0046649|GO:0030098|GO:0050864
+
+cell death: GO:0010941;GO:0042981;GO:0043067|GO:0043066;GO:0043069;GO:0060548
+
+cytokine: GO:0001817|GO:0034097;GO:0071345|GO:0019221
+
+--> 29 terms
+
 ```{r}
-MEredsym_name <- MEred_sym
-colnames(MEredsym_name) <- paste(c("gene_ID"))
+#MEredsym_name <- MEred_sym
+#colnames(MEredsym_name) <- paste(c("gene_ID"))
 
-bp_red_sym = read.csv("./data_files/BP_Sym_Presence_red.csv", sep="\t")
-head(bp_red_sym)
-colnames(bp_red_sym)[4]="gene_ID"
+#bp_red_sym = read.csv("./data_files/BP_Sym_Presence_red.csv", sep="\t")
+#head(bp_red_sym)
+#colnames(bp_red_sym)[4]="gene_ID"
 
-go_bp_red_sym <- read.csv("./data_files/MWU_BP_Sym_Presence_red.csv", header=TRUE, sep=" ")
-head(go_bp_red_sym)
-write.table(go_bp_red_sym, "./data_files/MWU_BP_Sym_Presence_red.txt", quote=F, sep="\t", row.names=FALSE)
+#go_bp_red_sym <- read.csv("./data_files/MWU_BP_Sym_Presence_red.csv", header=TRUE, sep=" ")
+#head(go_bp_red_sym)
+#write.table(go_bp_red_sym, "./data_files/MWU_BP_Sym_Presence_red.txt", quote=F, sep="\t", row.names=FALSE)
+
+MEblacksym_name <- MEblack_sym
+colnames(MEblacksym_name) <- paste(c("gene_ID"))
+
+bp_black_sym = read.csv("./BP_Sym_Presence_black.csv", sep="\t")
+head(bp_black_sym)
+colnames(bp_black_sym)[4]="gene_ID"
+
+go_bp_black_sym <- read.csv("./MWU_BP_Sym_Presence_black.csv", header=TRUE, sep=" ")
+head(go_bp_black_sym)
+write.table(go_bp_black_sym, "./MWU_BP_Sym_Presence_black.txt", quote=F, sep="\t", row.names=FALSE)
 ```
+
+```{r}
+bp_black_sym_imm <- bp_black_sym %>%
+  filter(str_detect(term, "GO:0006955|GO:0045087|GO:0140546|GO:0098542|GO:0002376|GO:0002253|GO:0002757|GO:0002764|GO:0002684|GO:0050778|GO:0050776|GO:0002682|GO:0002252|GO:0002768|GO:0002429|GO:0051092|GO:0043122|GO:0032663|GO:0006952|GO:1903131|GO:0002521|GO:0050851|GO:0002335|GO:0050852|GO:0009615|GO:0030183|GO:1902105|GO:1902107|GO:1903708|GO:0045321|GO:0046649|GO:0030098|GO:0050864|GO:0010941|GO:0042981|GO:0043067|GO:0043066|GO:0043069|GO:0060548|GO:0001817|GO:0034097|GO:0071345|GO:0019221")) %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  select(gene_ID)
+nrow(bp_black_sym_imm) #941
+head(bp_black_sym_imm)
+```
+
 
 P0C
 ```{r}
@@ -1659,34 +1721,34 @@ head(sig05_sym_P0C)
 head(sig05_sym_P0C_name)
 nrow(sig05_sym_P0C_name) #1000
 
-sig05_sym_P0C_name_red <- sig05_sym_P0C_name %>%
-  inner_join(MEredsym_name)
-nrow(sig05_sym_P0C_name_red) #77
+sig05_sym_P0C_name_black <- sig05_sym_P0C_name %>%
+  inner_join(MEblacksym_name)
+nrow(sig05_sym_P0C_name_black) #87
 
-rld_degs_P0Cs_red <- rld_df_sym %>%
+rld_degs_P0Cs_black <- rld_df_sym %>%
   rownames_to_column(var="gene_ID") %>%
-  right_join(sig05_sym_P0C_name_red)
-head(rld_degs_P0Cs_red)
-nrow(rld_degs_P0Cs_red)
-#77
+  right_join(sig05_sym_P0C_name_black)
+head(rld_degs_P0Cs_black)
+nrow(rld_degs_P0Cs_black)
+#87
 
-immune_all_red_P0Cs = bp_red_sym %>%
-  filter(str_detect(term, "GO:0002376|GO:0006955|GO:0045087|GO:0140546|GO:0098542|GO:0002253|GO:0002757|GO:0002764|GO:0050776|GO:0002682|GO:0050778|GO:0002252|GO:0002768|GO:0002684|GO:0002697|GO:0002429|GO:0002263|GO:0002366|GO:0006952|GO:0031347|GO:1903131|GO:0002521|GO:0030183|GO:0045321|GO:0046649|GO:0030098|GO:0009615|GO:0050851|GO:0050852|GO:0002335|GO:0046631|GO:0042113|GO:1902105|GO:1902107|GO:1903708|GO:0051607|GO:0002761|GO:0002763|GO:0045639|GO:0051092|GO:0043122|GO:0010941|GO:0042981|GO:0043067|GO:0043066|GO:0043069|GO:0060548|GO:0001817|GO:0019221|GO:0034097|GO:0071345|GO:0001819")) %>% # select desired GO terms
-  left_join(rld_degs_P0Cs_red) %>% 
+immune_all_black_P0Cs = bp_black_sym %>%
+  filter(str_detect(term, "GO:0006955|GO:0045087|GO:0140546|GO:0098542|GO:0002376|GO:0002253|GO:0002757|GO:0002764|GO:0002684|GO:0050778|GO:0050776|GO:0002682|GO:0002252|GO:0002768|GO:0002429|GO:0051092|GO:0043122|GO:0032663|GO:0006952|GO:1903131|GO:0002521|GO:0050851|GO:0002335|GO:0050852|GO:0009615|GO:0030183|GO:1902105|GO:1902107|GO:1903708|GO:0045321|GO:0046649|GO:0030098|GO:0050864|GO:0010941|GO:0042981|GO:0043067|GO:0043066|GO:0043069|GO:0060548|GO:0001817|GO:0034097|GO:0071345|GO:0019221")) %>% # select desired GO terms
+  left_join(rld_degs_P0Cs_black) %>% 
   drop_na() %>%
   distinct(gene_ID, .keep_all = TRUE) %>%
   left_join(gene) %>%
   column_to_rownames(var = "gene_symbol") %>%
   dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
   dplyr::select(sort(tidyselect::peek_vars()))
-head(immune_all_red_P0Cs)
-nrow(immune_all_red_P0Cs)
-#12
+head(immune_all_black_P0Cs)
+nrow(immune_all_black_P0Cs)
+#10
 
-rld_means_immall_P0Cs_red = apply(immune_all_red_P0Cs, 1, mean)
-explc_rld_immall_P0Cs_red = immune_all_red_P0Cs-rld_means_immall_P0Cs_red
+rld_means_immall_P0Cs_black = apply(immune_all_black_P0Cs, 1, mean)
+explc_rld_immall_P0Cs_black = immune_all_black_P0Cs-rld_means_immall_P0Cs_black
 
-imm_all_hm_P0Cs_red <- pheatmap(as.matrix(explc_rld_immall_P0Cs_red),
+imm_all_hm_P0Cs_black <- pheatmap(as.matrix(explc_rld_immall_P0Cs_black),
          color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
          cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
          cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
@@ -1694,7 +1756,7 @@ imm_all_hm_P0Cs_red <- pheatmap(as.matrix(explc_rld_immall_P0Cs_red),
          breaks=c(seq(from=-1,to=1,by=0.1)),
          scale="none",
          legend=T)
-#saved as immune_all_hm_P0Csym_red 6x4 landscape
+#saved as immune_all_hm_P0Csym_black 6x4 landscape
 ```
 
 P2C
@@ -1705,34 +1767,34 @@ head(sig05_sym_P2C)
 head(sig05_sym_P2C_name)
 nrow(sig05_sym_P2C_name) #983
 
-sig05_sym_P2C_name_red <- sig05_sym_P2C_name %>%
-  inner_join(MEredsym_name)
-nrow(sig05_sym_P2C_name_red) #219
+sig05_sym_P2C_name_black <- sig05_sym_P2C_name %>%
+  inner_join(MEblacksym_name)
+nrow(sig05_sym_P2C_name_black) #229
 
-rld_degs_P2Cs_red <- rld_df_sym %>%
+rld_degs_P2Cs_black <- rld_df_sym %>%
   rownames_to_column(var="gene_ID") %>%
-  right_join(sig05_sym_P2C_name_red)
-head(rld_degs_P2Cs_red)
-nrow(rld_degs_P2Cs_red)
-#219
+  right_join(sig05_sym_P2C_name_black)
+head(rld_degs_P2Cs_black)
+nrow(rld_degs_P2Cs_black)
+#229
 
-immune_all_red_P2Cs = bp_red_sym %>%
-  filter(str_detect(term, "GO:0002376|GO:0006955|GO:0045087|GO:0140546|GO:0098542|GO:0002253|GO:0002757|GO:0002764|GO:0050776|GO:0002682|GO:0050778|GO:0002252|GO:0002768|GO:0002684|GO:0002697|GO:0002429|GO:0002263|GO:0002366|GO:0006952|GO:0031347|GO:1903131|GO:0002521|GO:0030183|GO:0045321|GO:0046649|GO:0030098|GO:0009615|GO:0050851|GO:0050852|GO:0002335|GO:0046631|GO:0042113|GO:1902105|GO:1902107|GO:1903708|GO:0051607|GO:0002761|GO:0002763|GO:0045639|GO:0051092|GO:0043122|GO:0010941|GO:0042981|GO:0043067|GO:0043066|GO:0043069|GO:0060548|GO:0001817|GO:0019221|GO:0034097|GO:0071345|GO:0001819")) %>% # select desired GO terms
-  left_join(rld_degs_P2Cs_red) %>% 
+immune_all_black_P2Cs = bp_black_sym %>%
+  filter(str_detect(term, "GO:0006955|GO:0045087|GO:0140546|GO:0098542|GO:0002376|GO:0002253|GO:0002757|GO:0002764|GO:0002684|GO:0050778|GO:0050776|GO:0002682|GO:0002252|GO:0002768|GO:0002429|GO:0051092|GO:0043122|GO:0032663|GO:0006952|GO:1903131|GO:0002521|GO:0050851|GO:0002335|GO:0050852|GO:0009615|GO:0030183|GO:1902105|GO:1902107|GO:1903708|GO:0045321|GO:0046649|GO:0030098|GO:0050864|GO:0010941|GO:0042981|GO:0043067|GO:0043066|GO:0043069|GO:0060548|GO:0001817|GO:0034097|GO:0071345|GO:0019221")) %>% # select desired GO terms
+  left_join(rld_degs_P2Cs_black) %>% 
   drop_na() %>%
   distinct(gene_ID, .keep_all = TRUE) %>%
   left_join(gene) %>%
   column_to_rownames(var = "gene_symbol") %>%
   dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
   dplyr::select(sort(tidyselect::peek_vars()))
-head(immune_all_red_P2Cs)
-nrow(immune_all_red_P2Cs)
-#29
+head(immune_all_black_P2Cs)
+nrow(immune_all_black_P2Cs)
+#30
 
-rld_means_immall_P2Cs_red = apply(immune_all_red_P2Cs, 1, mean)
-explc_rld_immall_P2Cs_red = immune_all_red_P2Cs-rld_means_immall_P2Cs_red
+rld_means_immall_P2Cs_black = apply(immune_all_black_P2Cs, 1, mean)
+explc_rld_immall_P2Cs_black = immune_all_black_P2Cs-rld_means_immall_P2Cs_black
 
-imm_all_hm_P2Cs_red <- pheatmap(as.matrix(explc_rld_immall_P2Cs_red),
+imm_all_hm_P2Cs_black <- pheatmap(as.matrix(explc_rld_immall_P2Cs_black),
          color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
          cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
          cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
@@ -1740,7 +1802,7 @@ imm_all_hm_P2Cs_red <- pheatmap(as.matrix(explc_rld_immall_P2Cs_red),
          breaks=c(seq(from=-1,to=1,by=0.1)),
          scale="none",
          legend=T)
-#saved as immune_all_hm_P2Csym_red 6x5 landscape
+#saved as immune_all_hm_P2Csym_black 6x5 landscape
 ```
 
 RC
@@ -1751,34 +1813,34 @@ head(sig05_sym_RC)
 head(sig05_sym_RC_name)
 nrow(sig05_sym_RC_name) #1347
 
-sig05_sym_RC_name_red <- sig05_sym_RC_name %>%
-  inner_join(MEredsym_name)
-nrow(sig05_sym_RC_name_red) #26
+sig05_sym_RC_name_black <- sig05_sym_RC_name %>%
+  inner_join(MEblacksym_name)
+nrow(sig05_sym_RC_name_black) #22
 
-rld_degs_RCs_red <- rld_df_sym %>%
+rld_degs_RCs_black <- rld_df_sym %>%
   rownames_to_column(var="gene_ID") %>%
-  right_join(sig05_sym_RC_name_red)
-head(rld_degs_RCs_red)
-nrow(rld_degs_RCs_red)
-#219
+  right_join(sig05_sym_RC_name_black)
+head(rld_degs_RCs_black)
+nrow(rld_degs_RCs_black)
+#22
 
-immune_all_red_RCs = bp_red_sym %>%
-  filter(str_detect(term, "GO:0002376|GO:0006955|GO:0045087|GO:0140546|GO:0098542|GO:0002253|GO:0002757|GO:0002764|GO:0050776|GO:0002682|GO:0050778|GO:0002252|GO:0002768|GO:0002684|GO:0002697|GO:0002429|GO:0002263|GO:0002366|GO:0006952|GO:0031347|GO:1903131|GO:0002521|GO:0030183|GO:0045321|GO:0046649|GO:0030098|GO:0009615|GO:0050851|GO:0050852|GO:0002335|GO:0046631|GO:0042113|GO:1902105|GO:1902107|GO:1903708|GO:0051607|GO:0002761|GO:0002763|GO:0045639|GO:0051092|GO:0043122|GO:0010941|GO:0042981|GO:0043067|GO:0043066|GO:0043069|GO:0060548|GO:0001817|GO:0019221|GO:0034097|GO:0071345|GO:0001819")) %>% # select desired GO terms
-  left_join(rld_degs_RCs_red) %>% 
+immune_all_black_RCs = bp_black_sym %>%
+  filter(str_detect(term, "GO:0006955|GO:0045087|GO:0140546|GO:0098542|GO:0002376|GO:0002253|GO:0002757|GO:0002764|GO:0002684|GO:0050778|GO:0050776|GO:0002682|GO:0002252|GO:0002768|GO:0002429|GO:0051092|GO:0043122|GO:0032663|GO:0006952|GO:1903131|GO:0002521|GO:0050851|GO:0002335|GO:0050852|GO:0009615|GO:0030183|GO:1902105|GO:1902107|GO:1903708|GO:0045321|GO:0046649|GO:0030098|GO:0050864|GO:0010941|GO:0042981|GO:0043067|GO:0043066|GO:0043069|GO:0060548|GO:0001817|GO:0034097|GO:0071345|GO:0019221")) %>% # select desired GO terms
+  left_join(rld_degs_RCs_black) %>% 
   drop_na() %>%
   distinct(gene_ID, .keep_all = TRUE) %>%
   left_join(gene) %>%
   column_to_rownames(var = "gene_symbol") %>%
   dplyr::select(-name, -term, -lev, -value, -description, -gene_ID, -accession) %>%
   dplyr::select(sort(tidyselect::peek_vars()))
-head(immune_all_red_RCs)
-nrow(immune_all_red_RCs)
-#5
+head(immune_all_black_RCs)
+nrow(immune_all_black_RCs)
+#6
 
-rld_means_immall_RCs_red = apply(immune_all_red_RCs, 1, mean)
-explc_rld_immall_RCs_red = immune_all_red_RCs-rld_means_immall_RCs_red
+rld_means_immall_RCs_black = apply(immune_all_black_RCs, 1, mean)
+explc_rld_immall_RCs_black = immune_all_black_RCs-rld_means_immall_RCs_black
 
-imm_all_hm_RCs_red <- pheatmap(as.matrix(explc_rld_immall_RCs_red),
+imm_all_hm_RCs_black <- pheatmap(as.matrix(explc_rld_immall_RCs_black),
          color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
          cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
          cluster_cols = F, show_colnames = T, angle_col= "315", cellheight = 8, cellwidth = 11,
@@ -1786,20 +1848,20 @@ imm_all_hm_RCs_red <- pheatmap(as.matrix(explc_rld_immall_RCs_red),
          breaks=c(seq(from=-1,to=1,by=0.1)),
          scale="none",
          legend=T)
-#saved as immune_all_hm_RCsym_red 6x3 landscape
+#saved as immune_all_hm_RCsym_black 6x3 landscape
 ```
 
 
 ```{r}
 #heatmap of all together
-immune_all_red_ALLs <- rbind(immune_all_red_P0Cs, immune_all_red_P2Cs, immune_all_red_RCs) 
-immune_all_red_ALLs <- unique(immune_all_red_ALLs)
-nrow(immune_all_red_ALLs) #32
+immune_all_black_ALLs <- rbind(immune_all_black_P0Cs, immune_all_black_P2Cs, immune_all_black_RCs) 
+immune_all_black_ALLs <- unique(immune_all_black_ALLs)
+nrow(immune_all_black_ALLs) #33
 
-rld_means_immall_ALLs_red = apply(immune_all_red_ALLs, 1, mean)
-explc_rld_immall_ALLs_red = immune_all_red_ALLs-rld_means_immall_ALLs_red
+rld_means_immall_ALLs_black = apply(immune_all_black_ALLs, 1, mean)
+explc_rld_immall_ALLs_black = immune_all_black_ALLs-rld_means_immall_ALLs_black
 
-imm_all_hm_ALLs_red <- pheatmap(as.matrix(explc_rld_immall_ALLs_red),
+imm_all_hm_ALLs_black <- pheatmap(as.matrix(explc_rld_immall_ALLs_black),
          color=rev(colorRampPalette(brewer.pal(n=11, name="RdBu"))(20)),
          cluster_rows = T, show_rownames = T, fontsize_row=8, fontsize_col=8, treeheight_row = 8, treeheight_col = 10,
          cluster_cols = F, show_colnames = F, angle_col= "315", cellheight = 8, cellwidth = 8,
@@ -1807,7 +1869,7 @@ imm_all_hm_ALLs_red <- pheatmap(as.matrix(explc_rld_immall_ALLs_red),
          breaks=c(seq(from=-1,to=1,by=0.1)),
          scale="none",
          legend=T)
-#saved as immune_all_hm_ALLsym_red 6x6 portrait
+#saved as immune_all_hm_ALLsym_black 6x6 portrait
 ```
 
 #MEblue_apo
@@ -1835,6 +1897,24 @@ go_bp_blue_apo <- read.csv("./data_files/MWU_BP_Apo_Presence_blue.csv", header=T
 head(go_bp_blue_apo)
 write.table(go_bp_blue_apo, "./data_files/MWU_BP_Apo_Presence_blue.txt", quote=F, sep="\t", row.names=FALSE)
 ```
+
+```{r}
+bp_blue_apo_imm <- bp_blue_apo %>%
+  filter(str_detect(term, "GO:0002376|GO:0006955;GO:0045087;GO:0140546;GO:0098542|GO:0002682|GO:0002761;GO:0002763;GO:0045639|GO:0010939|GO:0006952|GO:0097194|GO:0034612")) %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  select(gene_ID)
+nrow(bp_blue_apo_imm) #565
+head(bp_blue_apo_imm)
+
+bp_blue_apo_tnf <- bp_blue_apo %>%
+  filter(str_detect(term, "GO:0034612")) %>%
+  distinct(gene_ID, .keep_all = TRUE) %>%
+  select(gene_ID) %>%
+  left_join(gene)
+nrow(bp_blue_apo_tnf) #38
+head(bp_blue_apo_tnf)
+```
+
 
 P0C
 ```{r}
